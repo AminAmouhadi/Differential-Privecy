@@ -228,6 +228,7 @@ class Resnet56KerasBenchmarkBase(keras_benchmark.KerasBenchmark):
   def benchmark_1_gpu(self):
     """Test 1 gpu."""
     self._setup()
+    print('saiganesh: Setting TF_AUTOTUNE_THRESHOLD as 2')
     os.environ['TF_AUTOTUNE_THRESHOLD'] = '2'
     FLAGS.num_gpus = 1
     FLAGS.enable_eager = True
