@@ -22,7 +22,7 @@ import tensorflow as tf
 # pylint: disable=protected-access
 
 
-class LARSOptimizer(tf.keras.optimizers.Optimizer):
+class LARS(tf.keras.optimizers.Optimizer):
   """Layer-wise Adaptive Rate Scaling for large batch training.
 
   Introduced by "Large Batch Training of Convolutional Networks" by Y. You,
@@ -30,7 +30,7 @@ class LARSOptimizer(tf.keras.optimizers.Optimizer):
   """
 
   def __init__(self,
-               learning_rate: float,
+               learning_rate: float = 0.01,
                momentum: float = 0.9,
                weight_decay_rate: float = 0.0,
                eeta: float = 0.001,
@@ -38,18 +38,18 @@ class LARSOptimizer(tf.keras.optimizers.Optimizer):
                classic_momentum: bool = True,
                exclude_from_weight_decay: Optional[List[Text]] = None,
                exclude_from_layer_adaptation: Optional[List[Text]] = None,
-               name: Text = "LARSOptimizer",
+               name: Text = "LARS",
                **kwargs):
     """Constructs a LARSOptimizer.
 
     Args:
-      learning_rate: `float` for learning rate.
+      learning_rate: `float` for learning rate. Defaults to 0.01.
       momentum: `float` hyperparameter >= 0 that accelerates gradient descent
-      in the relevant direction and dampens oscillations. Defaults to 0.9.
+          in the relevant direction and dampens oscillations. Defaults to 0.9.
       weight_decay_rate: `float` for weight decay.
       eeta: `float` LARS coefficient as used in the paper. Default set to LARS
-        coefficient from the paper. (eeta / weight_decay) determines the highest
-        scaling factor in LARS..
+          coefficient from the paper. (eeta / weight_decay) determines the highest
+          scaling factor in LARS..
       nesterov: 'boolean' for whether to use nesterov momentum.
       classic_momentum: `boolean` for whether to use classic (or popular)
           momentum. The learning rate is applied during momentum update in
@@ -63,14 +63,14 @@ class LARSOptimizer(tf.keras.optimizers.Optimizer):
           for layer adaptation. If it is None, it will be defaulted the same as
           exclude_from_weight_decay.
       name: `Text` as optional name for the operations created when applying
-        gradients. Defaults to "LARSOptimizer".
+        gradients. Defaults to "LARS".
       **kwargs: keyword arguments. Allowed to be {`clipnorm`, `clipvalue`, `lr`,
         `decay`}. `clipnorm` is clip gradients by norm; `clipvalue` is clip
         gradients by value, `decay` is included for backward compatibility to
         allow time inverse decay of learning rate. `lr` is included for backward
         compatibility, recommended to use `learning_rate` instead.
     """
-    super(LARSOptimizer, self).__init__(name, **kwargs)
+    super(LARS, self).__init__(name, **kwargs)
 
     self._set_hyper("learning_rate", learning_rate)
     self._set_hyper('decay', self._initial_decay)
@@ -171,7 +171,7 @@ class LARSOptimizer(tf.keras.optimizers.Optimizer):
     return True
 
   def get_config(self):
-    config = super(LARSOptimizer, self).get_config()
+    config = super(LARS, self).get_config()
     config.update({
         "learning_rate": self._serialize_hyperparameter("learning_rate"),
         "decay": self._serialize_hyperparameter("decay"),
