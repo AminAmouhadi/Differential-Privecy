@@ -60,7 +60,8 @@ class SimCLRModel(tf.keras.Model):
     features = tf.concat(features_list, 0)
 
     # Base network forward pass.
-    projections = self._back_bone(features, training=training)
+    endpoints = self._back_bone(features, training=training)
+    projections = endpoints[max(endpoints.keys())]
 
     # Add heads.
     projection_outputs, supervised_inputs = self._projection_head(
@@ -76,7 +77,23 @@ class SimCLRModel(tf.keras.Model):
         'supervised_outputs': supervised_outputs
     })
 
-    return projection_outputs, supervised_outputs
+    return model_outputs
+
+  @property
+  def backbone(self):
+    return self._backbone
+
+  @property
+  def projection_head(self):
+    return self._projection_head
+
+  @property
+  def supervised_head(self):
+    return self._supervised_head
+
+  @property
+  def mode(self):
+    return self._mode
 
   def get_config(self):
     return self._config_dict

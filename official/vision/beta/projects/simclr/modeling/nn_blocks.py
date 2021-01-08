@@ -32,7 +32,7 @@ class DenseBN(tf.keras.layers.Layer):
       self,
       output_dim: int,
       use_bias: bool = True,
-      use_normalization: bool = True,
+      use_normalization: bool = False,
       use_sync_bn: bool = False,
       norm_momentum: float = 0.99,
       norm_epsilon: float = 0.001,

@@ -53,6 +53,7 @@ from official.modeling import tf_utils
 from official.vision.beta.dataloaders import classification_input
 from official.vision.beta.modeling import factory
 from official.vision.beta.projects.simclr.configs import simclr as exp_cfg
+from official.vision.beta.tasks import image_classification
 
 
 @task_factory.register_task_cls(exp_cfg.SimCLRPretrainTask)
@@ -60,9 +61,6 @@ class SimCLRPretrainTask(base_task.Task):
   """A task for image classification."""
 
   def build_model(self):
-    pass
-
-  def initialize(self, model: tf.keras.Model):
     pass
 
   def build_inputs(self, params, input_context=None):
@@ -86,30 +84,8 @@ class SimCLRPretrainTask(base_task.Task):
 
 
 @task_factory.register_task_cls(exp_cfg.SimCLRFinetuneTask)
-class SimCLRFinetuneTask(base_task.Task):
+class SimCLRFinetuneTask(image_classification.ImageClassificationTask):
   """A task for image classification."""
 
   def build_model(self):
     pass
-
-  def initialize(self, model: tf.keras.Model):
-    pass
-
-  def build_inputs(self, params, input_context=None):
-    pass
-
-  def build_losses(self, labels, model_outputs, aux_losses=None):
-    pass
-
-  def build_metrics(self, training=True):
-    pass
-
-  def train_step(self, inputs, model, optimizer, metrics=None):
-    pass
-
-  def validation_step(self, inputs, model, metrics=None):
-    pass
-
-  def inference_step(self, inputs, model):
-    """Performs the forward step."""
-    return model(inputs, training=False)
