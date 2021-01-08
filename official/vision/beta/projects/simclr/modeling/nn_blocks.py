@@ -15,10 +15,108 @@
 # ==============================================================================
 
 """Contains common building blocks for simclr neural networks."""
+from typing import Text, Optional
 
 import tensorflow as tf
+from official.modeling import tf_utils
 
 
 @tf.keras.utils.register_keras_serializable(package='simclr')
-class LinearLayer(tf.keras.layers.Layer):
-  pass
+class DenseBN(tf.keras.layers.Layer):
+  """Modified Dense layer to help build simclr system.
+
+  The layer is a standards combination of Dense, BatchNorm and Activation.
+  """
+
+  def __init__(
+      self,
+      output_dim: int,
+      use_bias: bool = True,
+      use_normalization: bool = True,
+      use_sync_bn: bool = False,
+      norm_momentum: float = 0.99,
+      norm_epsilon: float = 0.001,
+      activation: Optional[Text] = 'relu',
+      kernel_initializer: Text = 'VarianceScaling',
+      name='linear_layer',
+      **kwargs):
+    """
+
+    Args:
+      output_dim: `int` size of output dimension.
+      use_bias: if True, use biase in the dense layer.
+      use_normalization: if True, use batch normalization.
+      use_sync_bn: if True, use synchronized batch normalization.
+      norm_momentum: `float` normalization momentum for the moving average.
+      norm_epsilon: `float` small float added to variance to avoid dividing by
+        zero.
+      activation: `str` name of the activation function.
+      kernel_initializer: kernel_initializer for convolutional layers.
+      name:
+      **kwargs: keyword arguments to be passed.
+    """
+    # Note: use_bias is ignored for the dense layer when use_bn=True.
+    # However, it is still used for batch norm.
+    super(DenseBN, self).__init__(**kwargs)
+    self._output_dim = output_dim
+    self._use_bias = use_bias
+    self._use_normalization = use_normalization
+    self._use_sync_bn = use_sync_bn
+    self._norm_momentum = norm_momentum
+    self._norm_epsilon = norm_epsilon
+    self._activation = activation
+    self._kernel_initializer = kernel_initializer
+    self._name = name
+
+    if use_sync_bn:
+      self._norm = tf.keras.layers.experimental.SyncBatchNormalization
+    else:
+      self._norm = tf.keras.layers.BatchNormalization
+    if tf.keras.backend.image_data_format() == 'channels_last':
+      self._bn_axis = -1
+    else:
+      self._bn_axis = 1
+    if activation:
+      self._activation_fn = tf_utils.get_activation(activation)
+    else:
+      self._activation_fn = None
+
+  def get_config(self):
+    config = {
+        'output_dim': self._output_dim,
+        'use_bias': self._use_bias,
+        'activation': self._activation,
+        'use_sync_bn': self._use_sync_bn,
+        'use_normalization': self._use_normalization,
+        'norm_momentum': self._norm_momentum,
+        'norm_epsilon': self._norm_epsilon,
+        'kernel_initializer': self._kernel_initializer,
+    }
+    base_config = super(DenseBN, self).get_config()
+    return dict(list(base_config.items()) + list(config.items()))
+
+  def build(self, input_shape):
+    # TODO(srbs): Add a new SquareDense layer.
+    self._dense0 = tf.keras.layers.Dense(
+        self._output_dim,
+        kernel_initializer=self._kernel_initializer,
+        use_bias=self._use_bias and not self._use_normalization)
+
+    if self._use_normalization:
+      self._norm0 = self._norm(
+          axis=self._bn_axis,
+          momentum=self._norm_momentum,
+          epsilon=self._norm_epsilon,
+          center=self._use_bias,
+          scale=True)
+
+    super(DenseBN, self).build(input_shape)
+
+  def call(self, inputs, training=None):
+    assert inputs.shape.ndims == 2, inputs.shape
+    x = self._dense0(inputs)
+    if self._use_normalization:
+      x = self._norm0(x)
+    if self._activation:
+      x = self._activation_fn(x)
+    return x
