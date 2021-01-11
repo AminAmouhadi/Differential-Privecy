@@ -23,7 +23,7 @@ For pre-training:
 - Each image need to be processed randomly twice
 
 ```snippets
-      if is_training and FLAGS.train_mode == 'pretrain':
+      if train_mode == 'pretrain':
         xs = []
         for _ in range(2):  # Two transformations
           xs.append(preprocess_fn_pretrain(image))
@@ -44,6 +44,28 @@ from official.vision.beta.dataloaders import decoder
 from official.vision.beta.dataloaders import parser
 from official.vision.beta.ops import augment
 from official.vision.beta.ops import preprocess_ops
+from official.vision.beta.projects.simclr.dataloaders import \
+  preprocess_ops as simclr_preprocess_ops
+
+
+class Decoder(decoder.Decoder):
+  """A tf.Example decoder for classification task."""
+
+  def __init__(self, decode_label=True):
+    self._decode_label = decode_label
+
+    self._keys_to_features = {
+        'image/encoded': tf.io.FixedLenFeature((), tf.string, default_value=''),
+    }
+    if self._decode_label:
+      self._keys_to_features.update({
+          'image/class/label': (
+              tf.io.FixedLenFeature((), tf.int64, default_value=-1))
+      })
+
+  def decode(self, serialized_example):
+    return tf.io.parse_single_example(
+        serialized_example, self._keys_to_features)
 
 
 class Parser(parser.Parser):
@@ -52,12 +74,130 @@ class Parser(parser.Parser):
   def __init__(self,
                output_size: List[int],
                num_classes: float,
+               aug_rang_crop: bool = True,
+               aug_rand_hflip: bool = True,
+               aug_color_distort: bool = True,
+               aug_color_jitter_strength: float = 1.0,
+               aug_color_jitter_impl: str = 'simclrv2',
+               aug_rand_blur: bool = True,
+               parse_label: bool =True,
+               test_crop: bool = True,
+               mode: str = 'pretrain',
                dtype: str = 'float32'):
-    pass
+    """Initializes parameters for parsing annotations in the dataset.
+
+    Args:
+      output_size: `Tensor` or `list` for [height, width] of output image. The
+        output_size should be divided by the largest feature stride 2^max_level.
+      num_classes: `float`, number of classes.
+      aug_rang_crop: `bool`, if Ture, augment training with random cropping.
+      aug_rand_hflip: `bool`, if True, augment training with random
+        horizontal flip.
+      aug_color_distort: `bool`, if True augment training with color distortion.
+      aug_color_jitter_strength: `float`, the floating number for the strength
+        of the color augmentation
+      aug_color_jitter_impl: `str`, 'simclrv1' or 'simclrv2'. Define whether
+        to use simclrv1 or simclrv2's version of random brightness.
+      aug_rand_blur: `bool`, if True, augment training with random blur.
+      parse_label: `bool`, if True, parse label together with image.
+      test_crop: `bool`, if True, augment eval with center cropping.
+      mode: `str`, 'pretain' or 'finetune'. Define training mode.
+      dtype: `str`, cast output image in dtype. It can be 'float32', 'float16',
+        or 'bfloat16'.
+    """
+    self._output_size = output_size
+    self._num_classes = num_classes
+    self._aug_rand_crop = aug_rang_crop
+    self._aug_rand_hflip = aug_rand_hflip
+    self._aug_color_distort = aug_color_distort
+    self._aug_color_jitter_strength = aug_color_jitter_strength
+    self._aug_color_jitter_impl = aug_color_jitter_impl
+    self._aug_rand_blur = aug_rand_blur
+    self._parse_label = parse_label
+    self._mode = mode
+    self._test_crop = test_crop
+    if max(self._output_size[0], self._output_size[1]) <= 32:
+      self._test_crop = False
+
+    if dtype == 'float32':
+      self._dtype = tf.float32
+    elif dtype == 'float16':
+      self._dtype = tf.float16
+    elif dtype == 'bfloat16':
+      self._dtype = tf.bfloat16
+    else:
+      raise ValueError('dtype {!r} is not supported!'.format(dtype))
+
+  def _parse_one_train_image(self, image_bytes, image_shape):
+    if self._aug_rand_crop:
+      cropped_image = preprocess_ops.random_crop_image_v2(
+          image_bytes, image_shape)
+      image = tf.cond(
+          tf.reduce_all(tf.equal(tf.shape(cropped_image), image_shape)),
+          lambda: preprocess_ops.center_crop_image_v2(image_bytes, image_shape),
+          lambda: cropped_image)
+    else:
+      image = tf.image.decode_jpeg(image_bytes, channels=3)
+
+    if self._aug_rand_hflip:
+      image = tf.image.random_flip_left_right(image)
+
+    if self._aug_color_distort:
+      image = simclr_preprocess_ops.random_color_jitter(
+          image=image,
+          color_jitter_strength=self._aug_color_jitter_strength,
+          impl=self._aug_color_jitter_impl)
+
+    if self._aug_rand_blur:
+      image = simclr_preprocess_ops.random_blur(
+          image, image_shape[0], image_shape[1])
+
+    image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
+    image = tf.clip_by_value(image, 0., 1.)
+    return image
 
   def _parse_train_data(self, decoded_tensors):
-    pass
+    """Parses data for training."""
+
+    if self._mode == 'finetune':
+      # for fine tuning, no augmentation is performed while training
+      return self._parse_eval_data(decoded_tensors)
+
+    elif self._mode == 'pretain':
+      image_bytes = decoded_tensors['image/encoded']
+      image_shape = tf.image.extract_jpeg_shape(image_bytes)
+      # Transform each example twice using a combination of
+      # simple augmentations, resulting in 2N data points
+      xs = []
+      for _ in range(2):
+        xs.append(self._parse_one_train_image(image_bytes, image_shape))
+      image = tf.concat(xs, -1)
+
+    else:
+      raise ValueError('The mode {} is not supported by the Parser.'
+                       .format(self._mode))
+
+    if self._parse_label:
+      label = tf.cast(decoded_tensors['image/class/label'], dtype=tf.int32)
+      return image, label
+
+    return image
 
   def _parse_eval_data(self, decoded_tensors):
     """Parses data for evaluation."""
-    pass
+    image_bytes = decoded_tensors['image/encoded']
+    image_shape = tf.image.extract_jpeg_shape(image_bytes)
+
+    if self._test_crop:
+      image = preprocess_ops.center_crop_image_v2(image_bytes, image_shape)
+    else:
+      image = tf.image.decode_jpeg(image_bytes, channels=3)
+
+    image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
+    image = tf.clip_by_value(image, 0., 1.)
+
+    if self._parse_label:
+      label = tf.cast(decoded_tensors['image/class/label'], dtype=tf.int32)
+      return image, label
+
+    return image
