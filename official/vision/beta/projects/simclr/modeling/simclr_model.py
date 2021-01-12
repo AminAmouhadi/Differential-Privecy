@@ -80,6 +80,14 @@ class SimCLRModel(tf.keras.Model):
     return model_outputs
 
   @property
+  def checkpoint_items(self):
+    """Returns a dictionary of items to be additionally checkpointed."""
+    items = dict(backbone=self.backbone,
+                 projection_head=self.projection_head,
+                 supervised_head=self.supervised_head)
+    return items
+
+  @property
   def backbone(self):
     return self._backbone
 

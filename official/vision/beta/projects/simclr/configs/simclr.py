@@ -77,16 +77,15 @@ class ContrastiveLoss(hyperparams.Config):
 
 
 @dataclasses.dataclass
-class Evaluation(hyperparams.Config):
-  top_k: int = 5
-  one_hot: bool = True
+class ClassificationLosses(hyperparams.Config):
   label_smoothing: float = 0.0
+  one_hot: bool = True
 
 
 @dataclasses.dataclass
-class Losses(hyperparams.Config):
+class Evaluation(hyperparams.Config):
+  top_k: int = 5
   one_hot: bool = True
-  label_smoothing: float = 0.0
 
 
 @dataclasses.dataclass
@@ -108,7 +107,7 @@ class SimCLRModel(hyperparams.Config):
 
 @dataclasses.dataclass
 class SimCLRPretrainTask(cfg.TaskConfig):
-  model: SimCLRModel = SimCLRModel()
+  model: SimCLRModel = SimCLRModel(mode='pretrain')
   train_data: DataConfig = DataConfig(
       parser=Parser(mode='pretrain'), is_training=True)
   validation_data: DataConfig = DataConfig(
@@ -116,18 +115,22 @@ class SimCLRPretrainTask(cfg.TaskConfig):
   loss: ContrastiveLoss = ContrastiveLoss()
   evaluation: Evaluation = Evaluation()
   init_checkpoint: Optional[str] = None
+  # all or backbone
+  init_checkpoint_modules: str = 'all'
   optimizer: str = 'lars'
   weight_decay: float = 1e-6
 
 
 @dataclasses.dataclass
 class SimCLRFinetuneTask(cfg.TaskConfig):
-  model: SimCLRModel = SimCLRModel()
+  model: SimCLRModel = SimCLRModel(mode='finetune')
   train_data: DataConfig = DataConfig(
       parser=Parser(mode='finetune'), is_training=True)
   validation_data: DataConfig = DataConfig(
       parser=Parser(mode='finetune'), is_training=False)
-  loss: Losses = Losses()
+  loss: ClassificationLosses = ClassificationLosses()
   init_checkpoint: Optional[str] = None
-  optimizer: str = 'lars'
+  # all, backbone_projection or backbone
+  init_checkpoint_modules: str = 'backbone_projection'
+  optimizer: str = 'sgd'
   weight_decay: float = 1e-6

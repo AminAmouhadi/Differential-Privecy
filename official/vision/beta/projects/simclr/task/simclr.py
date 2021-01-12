@@ -61,7 +61,6 @@ from official.vision.beta.projects.simclr.dataloaders import simclr_input
 from official.vision.beta.projects.simclr.losses import contractive_losses
 
 
-# TODO: Weight decay and regularization ?
 @task_factory.register_task_cls(exp_cfg.SimCLRPretrainTask)
 class SimCLRPretrainTask(base_task.Task):
   """A task for image classification."""
@@ -106,22 +105,26 @@ class SimCLRPretrainTask(base_task.Task):
     l2_regularizer = (tf.keras.regularizers.l2(
         l2_weight_decay / 2.0) if l2_weight_decay else None)
 
+    use_lars = 'lars' in self.task_config.optimizer
+
     backbone = backbones.factory.build_backbone(
         input_specs=input_specs,
         model_config=model_config.backbone,
-        l2_regularizer=l2_regularizer
-    )
+        l2_regularizer=l2_regularizer if not use_lars else None)
 
     projection_head_config = model_config.projection_head
     projection_head = simclr_head.ProjectionHead(
         proj_output_dim=projection_head_config.proj_output_dim,
         proj_mode=projection_head_config.proj_mode,
         num_proj_layers=projection_head_config.num_proj_layers,
-        ft_proj_idx=projection_head_config.ft_proj_idx)
+        ft_proj_idx=projection_head_config.ft_proj_idx,
+        kernel_regularizer=l2_regularizer if not use_lars else None,
+        bias_regularizer=l2_regularizer if not use_lars else None)
 
     supervised_head_config = model_config.projection_head
     supervised_head = simclr_head.ClassificationHead(
-        num_classes=supervised_head_config.num_classes)
+        num_classes=supervised_head_config.num_classes,
+        kernel_regularizer=l2_regularizer)
 
     model = simclr_model.SimCLRModel(
         input_specs=input_specs,
@@ -131,6 +134,30 @@ class SimCLRPretrainTask(base_task.Task):
         mode='pretrain')
 
     return model
+
+  def initialize(self, model: tf.keras.Model):
+    """Loading pretrained checkpoint."""
+    if not self.task_config.init_checkpoint:
+      return
+
+    ckpt_dir_or_file = self.task_config.init_checkpoint
+    if tf.io.gfile.isdir(ckpt_dir_or_file):
+      ckpt_dir_or_file = tf.train.latest_checkpoint(ckpt_dir_or_file)
+
+    # Restoring checkpoint.
+    if self.task_config.init_checkpoint_modules == 'all':
+      ckpt = tf.train.Checkpoint(**model.checkpoint_items)
+      status = ckpt.restore(ckpt_dir_or_file)
+      status.assert_consumed()
+    elif self.task_config.init_checkpoint_modules == 'backbone':
+      ckpt = tf.train.Checkpoint(backbone=model.backbone)
+      status = ckpt.restore(ckpt_dir_or_file)
+      status.expect_partial().assert_existing_objects_matched()
+    else:
+      assert "Only 'all' or 'backbone' can be used to initialize the model."
+
+    logging.info('Finished loading pretrained checkpoint from %s',
+                 ckpt_dir_or_file)
 
   def build_inputs(self, params, input_context=None):
     input_size = self.task_config.model.input_size
@@ -274,20 +301,232 @@ class SimCLRPretrainTask(base_task.Task):
 
     for m in metrics:
       metrics[m].update_state(labels, outputs['supervised_outputs'])
-
-    for m in metrics:
       logs.update({m: metrics[m].result()})
 
     return logs
 
-  def inference_step(self, inputs, model):
-    """Performs the forward step."""
-    return model(inputs, training=False)
-
 
 @task_factory.register_task_cls(exp_cfg.SimCLRFinetuneTask)
-class SimCLRFinetuneTask(image_classification.ImageClassificationTask):
+class SimCLRFinetuneTask(base_task.Task):
   """A task for image classification."""
 
   def build_model(self):
-    pass
+    model_config = self.task_config.model
+    input_specs = tf.keras.layers.InputSpec(
+        shape=[None] + model_config.input_size)
+
+    l2_weight_decay = self.task_config.weight_decay
+    # Divide weight decay by 2.0 to match the implementation of tf.nn.l2_loss.
+    # (https://www.tensorflow.org/api_docs/python/tf/keras/regularizers/l2)
+    # (https://www.tensorflow.org/api_docs/python/tf/nn/l2_loss)
+    l2_regularizer = (tf.keras.regularizers.l2(
+        l2_weight_decay / 2.0) if l2_weight_decay else None)
+
+    backbone = backbones.factory.build_backbone(
+        input_specs=input_specs,
+        model_config=model_config.backbone,
+        l2_regularizer=l2_regularizer)
+
+    projection_head_config = model_config.projection_head
+    projection_head = simclr_head.ProjectionHead(
+        proj_output_dim=projection_head_config.proj_output_dim,
+        proj_mode=projection_head_config.proj_mode,
+        num_proj_layers=projection_head_config.num_proj_layers,
+        ft_proj_idx=projection_head_config.ft_proj_idx,
+        kernel_regularizer=l2_regularizer,
+        bias_regularizer=l2_regularizer)
+
+    supervised_head_config = model_config.projection_head
+    supervised_head = simclr_head.ClassificationHead(
+        num_classes=supervised_head_config.num_classes,
+        kernel_regularizer=l2_regularizer)
+
+    model = simclr_model.SimCLRModel(
+        input_specs=input_specs,
+        backbone=backbone,
+        projection_head=projection_head,
+        supervised_head=supervised_head,
+        mode='finetune')
+
+    return model
+
+  def initialize(self, model: tf.keras.Model):
+    """Loading pretrained checkpoint."""
+    if not self.task_config.init_checkpoint:
+      return
+
+    ckpt_dir_or_file = self.task_config.init_checkpoint
+    if tf.io.gfile.isdir(ckpt_dir_or_file):
+      ckpt_dir_or_file = tf.train.latest_checkpoint(ckpt_dir_or_file)
+
+    # Restoring checkpoint.
+    if self.task_config.init_checkpoint_modules == 'all':
+      ckpt = tf.train.Checkpoint(**model.checkpoint_items)
+      status = ckpt.restore(ckpt_dir_or_file)
+      status.assert_consumed()
+    elif self.task_config.init_checkpoint_modules == 'backbone_projection':
+      ckpt = tf.train.Checkpoint(backbone=model.backbone,
+                                 projection_head=model.projection_head)
+      status = ckpt.restore(ckpt_dir_or_file)
+      status.expect_partial().assert_existing_objects_matched()
+    elif self.task_config.init_checkpoint_modules == 'backbone':
+      ckpt = tf.train.Checkpoint(backbone=model.backbone)
+      status = ckpt.restore(ckpt_dir_or_file)
+      status.expect_partial().assert_existing_objects_matched()
+    else:
+      assert "Only 'all' or 'backbone' can be used to initialize the model."
+
+    logging.info('Finished loading pretrained checkpoint from %s',
+                 ckpt_dir_or_file)
+
+  def build_inputs(self, params, input_context=None):
+    input_size = self.task_config.model.input_size
+
+    decoder = simclr_input.Decoder(params.decoder.decode_label)
+    parser = simclr_input.Parser(
+        output_size=input_size[:2],
+        test_crop=params.parser.test_crop,
+        mode=params.parser.mode,
+        dtype=params.dtype)
+
+    reader = input_reader.InputReader(
+        params,
+        dataset_fn=tf.data.TFRecordDataset,
+        decoder_fn=decoder.decode,
+        parser_fn=parser.parse_fn(params.is_training))
+
+    dataset = reader.read(input_context=input_context)
+
+    return dataset
+
+  def build_losses(self, labels, model_outputs, aux_losses=None):
+    """Sparse categorical cross entropy loss.
+
+    Args:
+      labels: labels.
+      model_outputs: Output logits of the classifier.
+      aux_losses: auxiliarly loss tensors, i.e. `losses` in keras.Model.
+
+    Returns:
+      The total loss tensor.
+    """
+    losses_config = self.task_config.losses
+    if losses_config.one_hot:
+      total_loss = tf.keras.losses.categorical_crossentropy(
+          labels,
+          model_outputs,
+          from_logits=True,
+          label_smoothing=losses_config.label_smoothing)
+    else:
+      total_loss = tf.keras.losses.sparse_categorical_crossentropy(
+          labels, model_outputs, from_logits=True)
+
+    total_loss = tf_utils.safe_mean(total_loss)
+    if aux_losses:
+      total_loss += tf.add_n(aux_losses)
+
+    return total_loss
+
+  def build_metrics(self, training=True):
+    """Gets streaming metrics for training/validation."""
+    k = self.task_config.evaluation.top_k
+    if self.task_config.evaluation.one_hot:
+      metrics = [
+          tf.keras.metrics.CategoricalAccuracy(name='accuracy'),
+          tf.keras.metrics.TopKCategoricalAccuracy(
+              k=k, name='top_{}_accuracy'.format(k))]
+    else:
+      metrics = [
+          tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy'),
+          tf.keras.metrics.SparseTopKCategoricalAccuracy(
+              k=k, name='top_{}_accuracy'.format(k))]
+    return metrics
+
+  def train_step(self, inputs, model, optimizer, metrics=None):
+    """Does forward and backward.
+
+    Args:
+      inputs: a dictionary of input tensors.
+      model: the model, forward pass definition.
+      optimizer: the optimizer for this training step.
+      metrics: a nested structure of metrics objects.
+
+    Returns:
+      A dictionary of logs.
+    """
+    features, labels = inputs
+    if self.task_config.losses.one_hot:
+      num_classes = self.task_config.model.supervised_head_config.num_classes
+      labels = tf.one_hot(labels, num_classes)
+    num_replicas = tf.distribute.get_strategy().num_replicas_in_sync
+    with tf.GradientTape() as tape:
+      outputs = model(features, training=True)
+      # Casting output layer as float32 is necessary when mixed_precision is
+      # mixed_float16 or mixed_bfloat16 to ensure output is casted as float32.
+      for item in outputs:
+        outputs[item] = tf.nest.map_structure(
+            lambda x: tf.cast(x, tf.float32), outputs[item])
+
+      # Computes per-replica loss.
+      loss = self.build_losses(
+          model_outputs=outputs['supervised_outputs'],
+          labels=labels, aux_losses=model.losses)
+      # Scales loss as the default gradients allreduce performs sum inside the
+      # optimizer.
+      scaled_loss = loss / num_replicas
+
+      # For mixed_precision policy, when LossScaleOptimizer is used, loss is
+      # scaled for numerical stability.
+      if isinstance(
+          optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
+        scaled_loss = optimizer.get_scaled_loss(scaled_loss)
+
+    tvars = model.trainable_variables
+    grads = tape.gradient(scaled_loss, tvars)
+    # Scales back gradient before apply_gradients when LossScaleOptimizer is
+    # used.
+    if isinstance(
+        optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
+      grads = optimizer.get_unscaled_gradients(grads)
+    optimizer.apply_gradients(list(zip(grads, tvars)))
+
+    logs = {self.loss: loss}
+    if metrics:
+      self.process_metrics(metrics, labels, outputs)
+      logs.update({m.name: m.result() for m in metrics})
+    elif model.compiled_metrics:
+      self.process_compiled_metrics(model.compiled_metrics, labels, outputs)
+      logs.update({m.name: m.result() for m in model.metrics})
+    return logs
+
+  def validation_step(self, inputs, model, metrics=None):
+    """Validatation step.
+
+    Args:
+      inputs: a dictionary of input tensors.
+      model: the keras.Model.
+      metrics: a nested structure of metrics objects.
+
+    Returns:
+      A dictionary of logs.
+    """
+    features, labels = inputs
+    if self.task_config.losses.one_hot:
+      num_classes = self.task_config.model.supervised_head_config.num_classes
+      labels = tf.one_hot(labels, num_classes)
+
+    outputs = self.inference_step(features, model)
+    for item in outputs:
+      outputs[item] = tf.nest.map_structure(
+          lambda x: tf.cast(x, tf.float32), outputs[item])
+    loss = self.build_losses(model_outputs=outputs['supervised_outputs'],
+                             labels=labels, aux_losses=model.losses)
+
+    logs = {self.loss: loss}
+    if metrics:
+      self.process_metrics(metrics, labels, outputs)
+      logs.update({m.name: m.result() for m in metrics})
+    elif model.compiled_metrics:
+      self.process_compiled_metrics(model.compiled_metrics, labels, outputs)
+      logs.update({m.name: m.result() for m in model.metrics})
+    return logs
