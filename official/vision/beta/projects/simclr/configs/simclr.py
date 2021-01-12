@@ -14,49 +14,120 @@
 # limitations under the License.
 # ==============================================================================
 """SimCLR configurations"""
-
+from typing import List, Optional
 import dataclasses
 
 from official.core import config_definitions as cfg
 from official.core import exp_factory
 from official.modeling import hyperparams
+from official.vision.beta.configs import backbones
+from official.vision.beta.configs import common
+from official.vision.beta.configs import decoders
+from official.vision.beta.projects.simclr.heads import simclr_head
+
+
+@dataclasses.dataclass
+class Decoder(hyperparams.Config):
+  decode_label: bool = True
 
 
 @dataclasses.dataclass
 class Parser(hyperparams.Config):
-  pass
+  aug_rand_crop: bool = True,
+  aug_rand_hflip: bool = True
+  aug_color_distort: bool = True
+  aug_color_jitter_strength: float = 1.0
+  aug_color_jitter_impl: str = 'simclrv2'
+  aug_rand_blur: bool = True
+  parse_label: bool = True
+  test_crop: bool = True
+  mode: str = 'pretrain'
 
 
 @dataclasses.dataclass
 class DataConfig(cfg.DataConfig):
-  pass
+  input_path: str = ''
+  global_batch_size: int = 0
+  is_training: bool = True
+  dtype: str = 'float32'
+  shuffle_buffer_size: int = 10000
+  cycle_length: int = 10
+  # simclr specific configs
+  parser: Parser = Parser()
+  decoder: Decoder = Decoder()
 
 
 @dataclasses.dataclass
 class ProjectionHead(hyperparams.Config):
-  pass
+  proj_output_dim: int = 128
+  proj_mode: str = 'nonlinear'
+  num_proj_layers: int = 3
+  ft_proj_idx: int = 0
 
 
 @dataclasses.dataclass
 class SupervisedHead(hyperparams.Config):
-  pass
+  num_classes: int = 1001
+
+
+@dataclasses.dataclass
+class ContrastiveLoss(hyperparams.Config):
+  projection_norm: bool = True
+  temperature: float = 1.0
+
+
+@dataclasses.dataclass
+class Evaluation(hyperparams.Config):
+  top_k: int = 5
+  one_hot: bool = True
+  label_smoothing: float = 0.0
 
 
 @dataclasses.dataclass
 class Losses(hyperparams.Config):
-  pass
+  one_hot: bool = True
+  label_smoothing: float = 0.0
 
 
 @dataclasses.dataclass
 class SimCLRModel(hyperparams.Config):
-  pass
+  input_size: List[int] = dataclasses.field(default_factory=list)
+  backbone: backbones.Backbone = backbones.Backbone(
+      type='resnet', resnet=backbones.ResNet())
+  projection_head: simclr_head.ProjectionHead = simclr_head.ProjectionHead(
+      proj_output_dim=128,
+      proj_mode='nonlinear',
+      num_proj_layers=3,
+      ft_proj_idx=0)
+  supervised_head = simclr_head.ClassificationHead(
+      num_classes=1001)
+  norm_activation: common.NormActivation = common.NormActivation(
+      use_sync_bn=False)
+  mode: str = 'pretrain'
 
 
 @dataclasses.dataclass
 class SimCLRPretrainTask(cfg.TaskConfig):
-  pass
+  model: SimCLRModel = SimCLRModel()
+  train_data: DataConfig = DataConfig(
+      parser=Parser(mode='pretrain'), is_training=True)
+  validation_data: DataConfig = DataConfig(
+      parser=Parser(mode='pretrain'), is_training=False)
+  loss: ContrastiveLoss = ContrastiveLoss()
+  evaluation: Evaluation = Evaluation()
+  init_checkpoint: Optional[str] = None
+  optimizer: str = 'lars'
+  weight_decay: float = 1e-6
 
 
 @dataclasses.dataclass
 class SimCLRFinetuneTask(cfg.TaskConfig):
-  pass
+  model: SimCLRModel = SimCLRModel()
+  train_data: DataConfig = DataConfig(
+      parser=Parser(mode='finetune'), is_training=True)
+  validation_data: DataConfig = DataConfig(
+      parser=Parser(mode='finetune'), is_training=False)
+  loss: Losses = Losses()
+  init_checkpoint: Optional[str] = None
+  optimizer: str = 'lars'
+  weight_decay: float = 1e-6

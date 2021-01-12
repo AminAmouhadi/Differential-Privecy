@@ -20,6 +20,8 @@ from typing import Text, Optional
 import tensorflow as tf
 from official.modeling import tf_utils
 
+regularizers = tf.keras.regularizers
+
 
 @tf.keras.utils.register_keras_serializable(package='simclr')
 class DenseBN(tf.keras.layers.Layer):
@@ -38,6 +40,8 @@ class DenseBN(tf.keras.layers.Layer):
       norm_epsilon: float = 0.001,
       activation: Optional[Text] = 'relu',
       kernel_initializer: Text = 'VarianceScaling',
+      kernel_regularizer: Optional[regularizers.Regularizer] = None,
+      bias_regularizer: Optional[regularizers.Regularizer] = None,
       name='linear_layer',
       **kwargs):
     """
@@ -52,7 +56,11 @@ class DenseBN(tf.keras.layers.Layer):
         zero.
       activation: `str` name of the activation function.
       kernel_initializer: kernel_initializer for convolutional layers.
-      name:
+      kernel_regularizer: tf.keras.regularizers.Regularizer object for Conv2D.
+        Default to None.
+      bias_regularizer: tf.keras.regularizers.Regularizer object for Conv2d.
+        Default to None.
+      name: `str`, name of the layer.
       **kwargs: keyword arguments to be passed.
     """
     # Note: use_bias is ignored for the dense layer when use_bn=True.
@@ -66,6 +74,8 @@ class DenseBN(tf.keras.layers.Layer):
     self._norm_epsilon = norm_epsilon
     self._activation = activation
     self._kernel_initializer = kernel_initializer
+    self._kernel_regularizer = kernel_regularizer
+    self._bias_regularizer = bias_regularizer
     self._name = name
 
     if use_sync_bn:
@@ -91,6 +101,8 @@ class DenseBN(tf.keras.layers.Layer):
         'norm_momentum': self._norm_momentum,
         'norm_epsilon': self._norm_epsilon,
         'kernel_initializer': self._kernel_initializer,
+        'kernel_regularizer': self._kernel_regularizer,
+        'bias_regularizer': self._bias_regularizer,
     }
     base_config = super(DenseBN, self).get_config()
     return dict(list(base_config.items()) + list(config.items()))
@@ -100,6 +112,8 @@ class DenseBN(tf.keras.layers.Layer):
     self._dense0 = tf.keras.layers.Dense(
         self._output_dim,
         kernel_initializer=self._kernel_initializer,
+        kernel_regularizer=self._kernel_regularizer,
+        bias_regularizer=self._bias_regularizer,
         use_bias=self._use_bias and not self._use_normalization)
 
     if self._use_normalization:

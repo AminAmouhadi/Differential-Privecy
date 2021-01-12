@@ -73,8 +73,7 @@ class Parser(parser.Parser):
 
   def __init__(self,
                output_size: List[int],
-               num_classes: float,
-               aug_rang_crop: bool = True,
+               aug_rand_crop: bool = True,
                aug_rand_hflip: bool = True,
                aug_color_distort: bool = True,
                aug_color_jitter_strength: float = 1.0,
@@ -89,8 +88,7 @@ class Parser(parser.Parser):
     Args:
       output_size: `Tensor` or `list` for [height, width] of output image. The
         output_size should be divided by the largest feature stride 2^max_level.
-      num_classes: `float`, number of classes.
-      aug_rang_crop: `bool`, if Ture, augment training with random cropping.
+      aug_rand_crop: `bool`, if Ture, augment training with random cropping.
       aug_rand_hflip: `bool`, if True, augment training with random
         horizontal flip.
       aug_color_distort: `bool`, if True augment training with color distortion.
@@ -106,8 +104,7 @@ class Parser(parser.Parser):
         or 'bfloat16'.
     """
     self._output_size = output_size
-    self._num_classes = num_classes
-    self._aug_rand_crop = aug_rang_crop
+    self._aug_rand_crop = aug_rand_crop
     self._aug_rand_hflip = aug_rand_hflip
     self._aug_color_distort = aug_color_distort
     self._aug_color_jitter_strength = aug_color_jitter_strength

@@ -47,7 +47,7 @@ class OptimizerConfig(oneof.OneOfConfig):
   adamw: opt_cfg.AdamWeightDecayConfig = opt_cfg.AdamWeightDecayConfig()
   lamb: opt_cfg.LAMBConfig = opt_cfg.LAMBConfig()
   rmsprop: opt_cfg.RMSPropConfig = opt_cfg.RMSPropConfig()
-  lars: opt_cfg.LAMBConfig = opt_cfg.LARSConfig()
+  lars: opt_cfg.LARSConfig = opt_cfg.LARSConfig()
 
 
 @dataclasses.dataclass
