@@ -117,8 +117,7 @@ class SimCLRPretrainTask(base_task.Task):
         proj_output_dim=projection_head_config.proj_output_dim,
         num_proj_layers=projection_head_config.num_proj_layers,
         ft_proj_idx=projection_head_config.ft_proj_idx,
-        kernel_regularizer=l2_regularizer if not use_lars else None,
-        bias_regularizer=l2_regularizer if not use_lars else None)
+        kernel_regularizer=l2_regularizer if not use_lars else None)
 
     supervised_head_config = model_config.projection_head
     supervised_head = simclr_head.ClassificationHead(
@@ -321,18 +320,19 @@ class SimCLRFinetuneTask(base_task.Task):
     l2_regularizer = (tf.keras.regularizers.l2(
         l2_weight_decay / 2.0) if l2_weight_decay else None)
 
+    use_lars = 'lars' in self.task_config.optimizer
+
     backbone = backbones.factory.build_backbone(
         input_specs=input_specs,
         model_config=model_config.backbone,
-        l2_regularizer=l2_regularizer)
+        l2_regularizer=l2_regularizer if not use_lars else None)
 
     projection_head_config = model_config.projection_head
     projection_head = simclr_head.ProjectionHead(
         proj_output_dim=projection_head_config.proj_output_dim,
         num_proj_layers=projection_head_config.num_proj_layers,
         ft_proj_idx=projection_head_config.ft_proj_idx,
-        kernel_regularizer=l2_regularizer,
-        bias_regularizer=l2_regularizer)
+        kernel_regularizer=l2_regularizer if not use_lars else None)
 
     supervised_head_config = model_config.projection_head
     supervised_head = simclr_head.ClassificationHead(
