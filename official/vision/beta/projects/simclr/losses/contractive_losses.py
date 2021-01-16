@@ -15,6 +15,7 @@
 """Contrastive loss functions."""
 
 # Import libraries
+import functools
 import tensorflow as tf
 
 LARGE_NUM = 1e9
@@ -93,41 +94,42 @@ class ContrastiveLoss(object):
       projection2 = tf.math.l2_normalize(projection2, -1)
     batch_size = tf.shape(projection1)[0]
 
+    p1_local, p2_local = projection1, projection2
     # Gather projection1/projection2 across replicas and create local labels.
     num_replicas_in_sync = tf.distribute.get_strategy().num_replicas_in_sync
     if num_replicas_in_sync > 1:
-      p1_large = cross_replica_concat(projection1, num_replicas_in_sync)
-      p2_large = cross_replica_concat(projection2, num_replicas_in_sync)
-      enlarged_batch_size = tf.shape(p1_large)[0]
-      # TODO(iamtingchen): more elegant way to convert u32 to s32 for replica_id.
+      p1_global = cross_replica_concat(p1_local, num_replicas_in_sync)
+      p2_global = cross_replica_concat(projection2, num_replicas_in_sync)
+      global_batch_size = tf.shape(p1_global)[0]
+      # TODO: more elegant way to convert u32 to s32 for replica_id.
       replica_context = tf.distribute.get_replica_context()
       replica_id = tf.cast(
           tf.cast(replica_context.replica_id_in_sync_group, tf.uint32),
           tf.int32)
       labels_idx = tf.range(batch_size) + replica_id * batch_size
-      labels = tf.one_hot(labels_idx, enlarged_batch_size * 2)
-      masks = tf.one_hot(labels_idx, enlarged_batch_size)
+      labels = tf.one_hot(labels_idx, global_batch_size * 2)
+      masks = tf.one_hot(labels_idx, global_batch_size)
     else:
-      p1_large = projection1
-      p2_large = projection2
+      p1_global = p1_local
+      p2_global = p2_local
       labels = tf.one_hot(tf.range(batch_size), batch_size * 2)
       masks = tf.one_hot(tf.range(batch_size), batch_size)
 
-    logits_aa = tf.matmul(projection1, p1_large,
-                          transpose_b=True) / self._temperature
+    tb_matmul = functools.partial(tf.matmul, transpose_b=True)
+
+    logits_aa = tb_matmul(p1_local, p1_global) / self._temperature
     logits_aa = logits_aa - masks * LARGE_NUM
-    logits_bb = tf.matmul(projection2, p2_large,
-                          transpose_b=True) / self._temperature
+
+    logits_bb = tb_matmul(p2_local, p2_global) / self._temperature
     logits_bb = logits_bb - masks * LARGE_NUM
-    logits_ab = tf.matmul(projection1, p2_large,
-                          transpose_b=True) / self._temperature
-    logits_ba = tf.matmul(projection2, p1_large,
-                          transpose_b=True) / self._temperature
 
-    loss_a = tf.nn.softmax_cross_entropy_with_logits(
+    logits_ab = tb_matmul(p1_local, p2_global) / self._temperature
+    logits_ba = tb_matmul(p2_local, p1_global) / self._temperature
+
+    loss_a_local = tf.nn.softmax_cross_entropy_with_logits(
         labels, tf.concat([logits_ab, logits_aa], 1))
-    loss_b = tf.nn.softmax_cross_entropy_with_logits(
+    loss_b_local = tf.nn.softmax_cross_entropy_with_logits(
         labels, tf.concat([logits_ba, logits_bb], 1))
-    loss = tf.reduce_mean(loss_a + loss_b)
+    loss_local = tf.reduce_mean(loss_a_local + loss_b_local)
 
-    return loss, logits_ab, labels
+    return loss_local, (logits_ab, labels)

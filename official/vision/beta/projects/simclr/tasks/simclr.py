@@ -198,19 +198,19 @@ class SimCLRPretrainTask(base_task.Task):
     # The projection outputs from model has the size of
     # (2 * bsz, project_dim)
     projection1, projection2 = tf.split(projection_outputs, 2, 0)
-    con_loss, logits_con, labels_con = losses_obj(
+    contrast_loss, (contrast_logits, contrast_labels) = losses_obj(
         projection1=projection1,
         projection2=projection2)
 
-    total_loss = tf_utils.safe_mean(con_loss)
+    total_loss = tf_utils.safe_mean(contrast_loss)
     if aux_losses:
       total_loss += tf.add_n(aux_losses)
 
     losses = {
         'total_loss': total_loss,
-        'contrast_loss': con_loss,
-        'contrast_logits': logits_con,
-        'contrast_labels': labels_con
+        'contrast_loss': contrast_loss,
+        'contrast_logits': contrast_logits,
+        'contrast_labels': contrast_labels
     }
     return losses
 
