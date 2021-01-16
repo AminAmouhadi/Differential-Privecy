@@ -31,7 +31,6 @@ class ProjectionHead(tf.keras.layers.Layer):
   def __init__(
       self,
       proj_output_dim: int,
-      proj_mode: Optional[Text] = 'nonlinear',
       num_proj_layers: int = 3,
       ft_proj_idx: int = 0,
       kernel_initializer: Text = 'VarianceScaling',
@@ -39,19 +38,20 @@ class ProjectionHead(tf.keras.layers.Layer):
       bias_regularizer: Optional[regularizers.Regularizer] = None,
       **kwargs):
     super(ProjectionHead, self).__init__(**kwargs)
+    assert ft_proj_idx <= num_proj_layers, (num_proj_layers, ft_proj_idx)
+    
     self._proj_output_dim = proj_output_dim
-    self._proj_mode = proj_mode
-    self._num_proj_layser = num_proj_layers
+    self._num_proj_layers = num_proj_layers
     self._ft_proj_idx = ft_proj_idx
     self._kernel_initializer = kernel_initializer
     self._kernel_regularizer = kernel_regularizer
     self._bias_regularizer = bias_regularizer
+    self._layers = []
 
   def get_config(self):
     config = {
         'proj_output_dim': self._proj_output_dim,
-        'proj_mode': self._proj_mode,
-        'num_proj_layers': self._num_proj_layser,
+        'num_proj_layers': self._num_proj_layers,
         'ft_proj_idx': self._ft_proj_idx,
         'kernel_initializer': self._kernel_initializer,
         'kernel_regularizer': self._kernel_regularizer,
@@ -61,72 +61,43 @@ class ProjectionHead(tf.keras.layers.Layer):
     return dict(list(base_config.items()) + list(config.items()))
 
   def build(self, input_shape):
-    self._layers = []
-    if self._proj_mode is None:
+    if self._num_proj_layers == 0:
       pass
-    elif self._proj_mode == 'linear':
-      self._layers.append(
-          nn_blocks.DenseBN(
+    else:
+      intermediate_dim = int(input_shape[-1])
+      for j in range(self._num_proj_layers):
+        if j != self._num_proj_layers - 1:
+          # for the middle layers, use bias and relu for the output.
+          layer = nn_blocks.DenseBN(
+              output_dim=intermediate_dim,
+              use_bias=True,
+              use_normalization=True,
+              activation='relu',
+              kernel_initializer=self._kernel_initializer,
+              kernel_regularizer=self._kernel_regularizer,
+              bias_regularizer=self._bias_regularizer,
+              name='nl_%d' % j)
+        else:
+          # for the final layer, neither bias nor relu is used.
+          layer = nn_blocks.DenseBN(
               output_dim=self._proj_output_dim,
               use_bias=False,
               use_normalization=True,
               activation=None,
               kernel_regularizer=self._kernel_regularizer,
               kernel_initializer=self._kernel_initializer,
-              name='l_0',
-          )
-      )
-    elif self._proj_mode == 'nonlinear':
-      intermediate_dim = int(input_shape[-1])
-      for j in range(self._num_proj_layser):
-        if j != self._num_proj_layser - 1:
-          # for the middle layers, use bias and relu for the output.
-          self._layers.append(
-              nn_blocks.DenseBN(
-                  output_dim=intermediate_dim,
-                  use_bias=True,
-                  use_normalization=True,
-                  activation='relu',
-                  kernel_initializer=self._kernel_initializer,
-                  kernel_regularizer=self._kernel_regularizer,
-                  bias_regularizer=self._bias_regularizer,
-                  name='nl_%d' % j,
-              )
-          )
-        else:
-          # for the final layer, neither bias nor relu is used.
-          self._layers.append(
-              nn_blocks.DenseBN(
-                  output_dim=self._proj_output_dim,
-                  use_bias=False,
-                  use_normalization=True,
-                  activation=None,
-                  kernel_regularizer=self._kernel_regularizer,
-                  kernel_initializer=self._kernel_initializer,
-                  name='nl_%d' % j,
-              )
-          )
-    else:
-      raise ValueError('Unknown head projection mode {}'.format(
-          self._proj_mode))
-
+              name='nl_%d' % j)
+        self._layers.append(layer)
     super(ProjectionHead, self).build(input_shape)
 
   def call(self, inputs, training=None):
-    proj_head_output = None
     proj_finetune_output = None
+    hiddens_list = [tf.identity(inputs, 'proj_head_input')]
 
-    if self._proj_mode is None:
+    if self._num_proj_layers == 0:
       proj_head_output = inputs
-
-    elif self._proj_mode == 'linear':
-      assert len(self.linear_layers) == 1, len(self.linear_layers)
-      proj_head_output = self._layers[0](inputs, training)
-      proj_finetune_output = tf.identity(inputs, 'proj_head_input')
-
-    elif self._proj_mode == 'nonlinear':
-      hiddens_list = [tf.identity(inputs, 'proj_head_input')]
-      for j in range(self._num_proj_layser):
+    else:
+      for j in range(self._num_proj_layers):
         hiddens = self._layers[j](hiddens_list[-1], training)
         hiddens_list.append(hiddens)
       proj_head_output = tf.identity(hiddens_list[-1], 'proj_head_output')

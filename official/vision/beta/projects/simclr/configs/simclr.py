@@ -60,7 +60,6 @@ class DataConfig(cfg.DataConfig):
 @dataclasses.dataclass
 class ProjectionHead(hyperparams.Config):
   proj_output_dim: int = 128
-  proj_mode: str = 'nonlinear'
   num_proj_layers: int = 3
   ft_proj_idx: int = 0
 
@@ -95,7 +94,6 @@ class SimCLRModel(hyperparams.Config):
       type='resnet', resnet=backbones.ResNet())
   projection_head: simclr_head.ProjectionHead = simclr_head.ProjectionHead(
       proj_output_dim=128,
-      proj_mode='nonlinear',
       num_proj_layers=3,
       ft_proj_idx=0)
   supervised_head = simclr_head.ClassificationHead(

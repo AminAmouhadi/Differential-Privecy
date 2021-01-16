@@ -115,7 +115,6 @@ class SimCLRPretrainTask(base_task.Task):
     projection_head_config = model_config.projection_head
     projection_head = simclr_head.ProjectionHead(
         proj_output_dim=projection_head_config.proj_output_dim,
-        proj_mode=projection_head_config.proj_mode,
         num_proj_layers=projection_head_config.num_proj_layers,
         ft_proj_idx=projection_head_config.ft_proj_idx,
         kernel_regularizer=l2_regularizer if not use_lars else None,
@@ -330,7 +329,6 @@ class SimCLRFinetuneTask(base_task.Task):
     projection_head_config = model_config.projection_head
     projection_head = simclr_head.ProjectionHead(
         proj_output_dim=projection_head_config.proj_output_dim,
-        proj_mode=projection_head_config.proj_mode,
         num_proj_layers=projection_head_config.num_proj_layers,
         ft_proj_idx=projection_head_config.ft_proj_idx,
         kernel_regularizer=l2_regularizer,
