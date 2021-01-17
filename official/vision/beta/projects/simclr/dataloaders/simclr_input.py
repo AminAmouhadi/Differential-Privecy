@@ -42,10 +42,10 @@ import tensorflow as tf
 
 from official.vision.beta.dataloaders import decoder
 from official.vision.beta.dataloaders import parser
-from official.vision.beta.ops import augment
 from official.vision.beta.ops import preprocess_ops
 from official.vision.beta.projects.simclr.dataloaders import \
   preprocess_ops as simclr_preprocess_ops
+from official.vision.beta.projects.simclr.modeling import simclr_model
 
 
 class Decoder(decoder.Decoder):
@@ -79,9 +79,9 @@ class Parser(parser.Parser):
                aug_color_jitter_strength: float = 1.0,
                aug_color_jitter_impl: str = 'simclrv2',
                aug_rand_blur: bool = True,
-               parse_label: bool =True,
+               parse_label: bool = True,
                test_crop: bool = True,
-               mode: str = 'pretrain',
+               mode: str = simclr_model.PRETRAIN,
                dtype: str = 'float32'):
     """Initializes parameters for parsing annotations in the dataset.
 
@@ -156,11 +156,11 @@ class Parser(parser.Parser):
   def _parse_train_data(self, decoded_tensors):
     """Parses data for training."""
 
-    if self._mode == 'finetune':
+    if self._mode == simclr_model.FINETUNE:
       # for fine tuning, no augmentation is performed while training
       return self._parse_eval_data(decoded_tensors)
 
-    elif self._mode == 'pretain':
+    elif self._mode == simclr_model.PRETRAIN:
       image_bytes = decoded_tensors['image/encoded']
       image_shape = tf.image.extract_jpeg_shape(image_bytes)
       # Transform each example twice using a combination of

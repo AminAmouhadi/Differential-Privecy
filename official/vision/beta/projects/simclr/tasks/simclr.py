@@ -26,8 +26,6 @@ the task definition:
 - projection_head and/or supervised_head
 """
 
-import tensorflow as tf
-
 # Lint as: python3
 # Copyright 2020 The TensorFlow Authors. All Rights Reserved.
 #
@@ -54,7 +52,6 @@ from official.modeling import tf_utils
 from official.vision.beta.modeling import factory
 from official.vision.beta.modeling import backbones
 from official.vision.beta.projects.simclr.configs import simclr as exp_cfg
-from official.vision.beta.tasks import image_classification
 from official.vision.beta.projects.simclr.modeling import simclr_model
 from official.vision.beta.projects.simclr.heads import simclr_head
 from official.vision.beta.projects.simclr.dataloaders import simclr_input
@@ -64,34 +61,6 @@ from official.vision.beta.projects.simclr.losses import contractive_losses
 @task_factory.register_task_cls(exp_cfg.SimCLRPretrainTask)
 class SimCLRPretrainTask(base_task.Task):
   """A task for image classification."""
-
-  @staticmethod
-  def _update_train_metrics(
-      train_metrics: Dict[str, tf.keras.metrics.Metric],
-      train_losses: Dict[str, tf.Tensor]):
-    """Updated training metrics."""
-    total_loss_m = train_metrics['total_loss']
-    contrast_loss_m = train_metrics['contrast_loss']
-    contrast_acc_m = train_metrics['contrast_acc']
-    contrast_entropy_m = train_metrics['contrast_entropy']
-
-    total_loss = train_losses['total_loss']
-    contrast_loss = train_losses['contrast_loss']
-    contrast_logits = train_losses['contrast_logits']
-    contrast_labels = train_losses['contrast_labels']
-
-    contrast_loss_m.update_state(contrast_loss)
-    total_loss_m.update_state(total_loss)
-
-    contrast_acc_val = tf.equal(
-        tf.argmax(contrast_labels, 1), tf.argmax(contrast_logits, axis=1))
-    contrast_acc_val = tf.reduce_mean(tf.cast(contrast_acc_val, tf.float32))
-    contrast_acc_m.update_state(contrast_acc_val)
-
-    prob_con = tf.nn.softmax(contrast_logits)
-    entropy_con = -tf.reduce_mean(
-        tf.reduce_sum(prob_con * tf.math.log(prob_con + 1e-8), -1))
-    contrast_entropy_m.update_state(entropy_con)
 
   def build_model(self):
     model_config = self.task_config.model
@@ -119,17 +88,20 @@ class SimCLRPretrainTask(base_task.Task):
         ft_proj_idx=projection_head_config.ft_proj_idx,
         kernel_regularizer=l2_regularizer if not use_lars else None)
 
-    supervised_head_config = model_config.projection_head
-    supervised_head = simclr_head.ClassificationHead(
-        num_classes=supervised_head_config.num_classes,
-        kernel_regularizer=l2_regularizer)
+    supervised_head_config = model_config.supervised_head
+    if supervised_head_config:
+      supervised_head = simclr_head.ClassificationHead(
+          num_classes=supervised_head_config.num_classes,
+          kernel_regularizer=l2_regularizer)
+    else:
+      supervised_head = None
 
     model = simclr_model.SimCLRModel(
         input_specs=input_specs,
         backbone=backbone,
         projection_head=projection_head,
         supervised_head=supervised_head,
-        mode='pretrain')
+        mode=simclr_model.PRETRAIN)
 
     return model
 
@@ -187,7 +159,7 @@ class SimCLRPretrainTask(base_task.Task):
   def build_losses(
       self,
       labels,
-      projection_outputs,
+      model_outputs,
       aux_losses=None) -> Dict[str, tf.Tensor]:
     losses_config = self.task_config.loss
     losses_obj = contractive_losses.ContrastiveLoss(
@@ -195,10 +167,19 @@ class SimCLRPretrainTask(base_task.Task):
         temperature=losses_config.temperature)
     # The projection outputs from model has the size of
     # (2 * bsz, project_dim)
+    projection_outputs = model_outputs['projection_outputs']
     projection1, projection2 = tf.split(projection_outputs, 2, 0)
     contrast_loss, (contrast_logits, contrast_labels) = losses_obj(
         projection1=projection1,
         projection2=projection2)
+
+    contrast_accuracy = tf.equal(
+        tf.argmax(contrast_labels, 1), tf.argmax(contrast_logits, axis=1))
+    contrast_accuracy = tf.reduce_mean(tf.cast(contrast_accuracy, tf.float32))
+
+    contrast_prob = tf.nn.softmax(contrast_logits)
+    contrast_entropy = -tf.reduce_mean(
+        tf.reduce_sum(contrast_prob * tf.math.log(contrast_prob + 1e-8), -1))
 
     total_loss = tf_utils.safe_mean(contrast_loss)
     if aux_losses:
@@ -207,9 +188,30 @@ class SimCLRPretrainTask(base_task.Task):
     losses = {
         'total_loss': total_loss,
         'contrast_loss': contrast_loss,
-        'contrast_logits': contrast_logits,
-        'contrast_labels': contrast_labels
+        'contrast_accuracy': contrast_accuracy,
+        'contrast_entropy': contrast_entropy
     }
+
+    if self.task_config.model.supervised_head:
+      labels = tf.concat([labels, labels], 0)
+      outputs = model_outputs['supervised_outputs']
+      if self.task_config.evaluation.one_hot:
+        sup_loss = tf.keras.losses.categorical_crossentropy(
+            labels, outputs, from_logits=True)
+      else:
+        sup_loss = tf.keras.losses.sparse_categorical_crossentropy(
+            labels, outputs, from_logits=True)
+      sup_loss = tf_utils.safe_mean(sup_loss)
+
+      label_acc = tf.equal(tf.argmax(labels, 1),
+                           tf.argmax(outputs, axis=1))
+      label_acc = tf.reduce_mean(tf.cast(label_acc, tf.float32))
+      losses.update({
+          'accuracy': label_acc,
+          'supervised_loss': sup_loss,
+          'total_loss': losses['total_loss'] + sup_loss
+      })
+
     return losses
 
   def build_metrics(self, training=True) -> Dict[str, tf.keras.metrics.Metric]:
@@ -219,9 +221,11 @@ class SimCLRPretrainTask(base_task.Task):
       metric_names = [
           'total_loss',
           'contrast_loss',
-          'contrast_acc',
+          'contrast_accuracy',
           'contrast_entropy'
       ]
+      if self.task_config.model.supervised_head:
+        metric_names.extend(['supervised_loss', 'accuracy'])
       for name in metric_names:
         metrics[name] = tf.keras.metrics.Mean(name, dtype=tf.float32)
     else:
@@ -255,8 +259,7 @@ class SimCLRPretrainTask(base_task.Task):
 
       # Computes per-replica loss.
       losses = self.build_losses(
-          projection_outputs=outputs['projection_outputs'],
-          labels=labels, aux_losses=model.losses)
+          model_outputs=outputs, labels=labels, aux_losses=model.losses)
 
       scaled_loss = losses['total_loss'] / num_replicas
       # For mixed_precision policy, when LossScaleOptimizer is used, loss is
@@ -273,9 +276,8 @@ class SimCLRPretrainTask(base_task.Task):
 
     logs = {self.loss: losses['total_loss']}
 
-    self._update_train_metrics(train_metrics=metrics, train_losses=losses)
-
     for m in metrics:
+      metrics[m].update_state(losses[m])
       logs.update({m: metrics[m].result()})
 
     return logs
@@ -292,8 +294,7 @@ class SimCLRPretrainTask(base_task.Task):
           lambda x: tf.cast(x, tf.float32), outputs[item])
 
     losses = self.build_losses(
-        projection_outputs=outputs['projection_outputs'],
-        labels=labels, aux_losses=model.losses)
+        model_outputs=outputs, labels=labels, aux_losses=model.losses)
 
     logs = {self.loss: losses['total_loss']}
 
@@ -334,7 +335,7 @@ class SimCLRFinetuneTask(base_task.Task):
         ft_proj_idx=projection_head_config.ft_proj_idx,
         kernel_regularizer=l2_regularizer if not use_lars else None)
 
-    supervised_head_config = model_config.projection_head
+    supervised_head_config = model_config.supervised_head
     supervised_head = simclr_head.ClassificationHead(
         num_classes=supervised_head_config.num_classes,
         kernel_regularizer=l2_regularizer)
@@ -344,7 +345,7 @@ class SimCLRFinetuneTask(base_task.Task):
         backbone=backbone,
         projection_head=projection_head,
         supervised_head=supervised_head,
-        mode='finetune')
+        mode=simclr_model.FINETUNE)
 
     return model
 

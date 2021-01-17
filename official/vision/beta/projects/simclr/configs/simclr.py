@@ -22,8 +22,7 @@ from official.core import exp_factory
 from official.modeling import hyperparams
 from official.vision.beta.configs import backbones
 from official.vision.beta.configs import common
-from official.vision.beta.configs import decoders
-from official.vision.beta.projects.simclr.heads import simclr_head
+from official.vision.beta.projects.simclr.modeling import simclr_model
 
 
 @dataclasses.dataclass
@@ -41,7 +40,7 @@ class Parser(hyperparams.Config):
   aug_rand_blur: bool = True
   parse_label: bool = True
   test_crop: bool = True
-  mode: str = 'pretrain'
+  mode: str = simclr_model.PRETRAIN
 
 
 @dataclasses.dataclass
@@ -92,24 +91,23 @@ class SimCLRModel(hyperparams.Config):
   input_size: List[int] = dataclasses.field(default_factory=list)
   backbone: backbones.Backbone = backbones.Backbone(
       type='resnet', resnet=backbones.ResNet())
-  projection_head: simclr_head.ProjectionHead = simclr_head.ProjectionHead(
+  projection_head: ProjectionHead = ProjectionHead(
       proj_output_dim=128,
       num_proj_layers=3,
       ft_proj_idx=0)
-  supervised_head = simclr_head.ClassificationHead(
-      num_classes=1001)
+  supervised_head = SupervisedHead(num_classes=1001)
   norm_activation: common.NormActivation = common.NormActivation(
       use_sync_bn=False)
-  mode: str = 'pretrain'
+  mode: str = simclr_model.PRETRAIN
 
 
 @dataclasses.dataclass
 class SimCLRPretrainTask(cfg.TaskConfig):
-  model: SimCLRModel = SimCLRModel(mode='pretrain')
+  model: SimCLRModel = SimCLRModel(mode=simclr_model.PRETRAIN)
   train_data: DataConfig = DataConfig(
-      parser=Parser(mode='pretrain'), is_training=True)
+      parser=Parser(mode=simclr_model.PRETRAIN), is_training=True)
   validation_data: DataConfig = DataConfig(
-      parser=Parser(mode='pretrain'), is_training=False)
+      parser=Parser(mode=simclr_model.PRETRAIN), is_training=False)
   loss: ContrastiveLoss = ContrastiveLoss()
   evaluation: Evaluation = Evaluation()
   init_checkpoint: Optional[str] = None
@@ -121,11 +119,11 @@ class SimCLRPretrainTask(cfg.TaskConfig):
 
 @dataclasses.dataclass
 class SimCLRFinetuneTask(cfg.TaskConfig):
-  model: SimCLRModel = SimCLRModel(mode='finetune')
+  model: SimCLRModel = SimCLRModel(mode=simclr_model.FINETUNE)
   train_data: DataConfig = DataConfig(
-      parser=Parser(mode='finetune'), is_training=True)
+      parser=Parser(mode=simclr_model.FINETUNE), is_training=True)
   validation_data: DataConfig = DataConfig(
-      parser=Parser(mode='finetune'), is_training=False)
+      parser=Parser(mode=simclr_model.FINETUNE), is_training=False)
   loss: ClassificationLosses = ClassificationLosses()
   init_checkpoint: Optional[str] = None
   # all, backbone_projection or backbone

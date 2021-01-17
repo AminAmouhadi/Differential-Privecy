@@ -19,6 +19,9 @@ import tensorflow as tf
 
 layers = tf.keras.layers
 
+PRETRAIN = 'pretrain'
+FINETUNE = 'finetune'
+
 
 @tf.keras.utils.register_keras_serializable(package="simclr")
 class SimCLRModel(tf.keras.Model):
@@ -27,9 +30,9 @@ class SimCLRModel(tf.keras.Model):
   def __init__(self,
                backbone,
                projection_head,
-               supervised_head,
+               supervised_head=None,
                input_specs=layers.InputSpec(shape=[None, None, None, 3]),
-               mode: str = 'pretrain',
+               mode: str = PRETRAIN,
                **kwargs):
     super(SimCLRModel, self).__init__(**kwargs)
     self._config_dict = {
@@ -48,7 +51,7 @@ class SimCLRModel(tf.keras.Model):
   def call(self, inputs, training=None, **kwargs):
     model_outputs = {}
 
-    if training and self._mode == 'pretrain':
+    if training and self._mode == PRETRAIN:
       num_transforms = 2
     else:
       num_transforms = 1
@@ -68,7 +71,14 @@ class SimCLRModel(tf.keras.Model):
         projections, training)
 
     if self._supervised_head:
-      supervised_outputs = self._supervised_head(supervised_inputs)
+      if self._mode == PRETRAIN:
+        # When performing pretraining and supervised_head together, we do not
+        # want information from supervised evaluation flowing back into
+        # pretraining network. So we put a stop_gradient.
+        supervised_outputs = self._supervised_head(
+            tf.stop_gradient(supervised_inputs))
+      else:
+        supervised_outputs = self._supervised_head(supervised_inputs)
     else:
       supervised_outputs = None
 
