@@ -17,7 +17,6 @@
 # Import libraries
 from typing import Text, Optional
 
-import numpy as np
 import tensorflow as tf
 
 from official.modeling import tf_utils
@@ -30,16 +29,18 @@ regularizers = tf.keras.regularizers
 class ProjectionHead(tf.keras.layers.Layer):
   def __init__(
       self,
-      proj_output_dim: int,
       num_proj_layers: int = 3,
+      proj_output_dim: Optional[int] = None,
       ft_proj_idx: int = 0,
       kernel_initializer: Text = 'VarianceScaling',
       kernel_regularizer: Optional[regularizers.Regularizer] = None,
       bias_regularizer: Optional[regularizers.Regularizer] = None,
       **kwargs):
     super(ProjectionHead, self).__init__(**kwargs)
+
+    assert proj_output_dim is not None or num_proj_layers == 0
     assert ft_proj_idx <= num_proj_layers, (num_proj_layers, ft_proj_idx)
-    
+
     self._proj_output_dim = proj_output_dim
     self._num_proj_layers = num_proj_layers
     self._ft_proj_idx = ft_proj_idx

@@ -15,7 +15,6 @@
 # ==============================================================================
 
 from absl.testing import parameterized
-import numpy as np
 import tensorflow as tf
 
 from official.vision.beta.projects.simclr.modeling.layers import nn_blocks
