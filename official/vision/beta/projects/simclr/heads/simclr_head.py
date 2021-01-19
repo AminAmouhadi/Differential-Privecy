@@ -21,7 +21,7 @@ import numpy as np
 import tensorflow as tf
 
 from official.modeling import tf_utils
-from official.vision.beta.projects.simclr.modeling import nn_blocks
+from official.vision.beta.projects.simclr.modeling.layers import nn_blocks
 
 regularizers = tf.keras.regularizers
 
