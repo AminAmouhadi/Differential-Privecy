@@ -55,7 +55,7 @@ from official.vision.beta.projects.simclr.configs import simclr as exp_cfg
 from official.vision.beta.projects.simclr.modeling import simclr_model
 from official.vision.beta.projects.simclr.heads import simclr_head
 from official.vision.beta.projects.simclr.dataloaders import simclr_input
-from official.vision.beta.projects.simclr.losses import contractive_losses
+from official.vision.beta.projects.simclr.losses import contrastive_losses
 
 
 @task_factory.register_task_cls(exp_cfg.SimCLRPretrainTask)
@@ -162,7 +162,7 @@ class SimCLRPretrainTask(base_task.Task):
       model_outputs,
       aux_losses=None) -> Dict[str, tf.Tensor]:
     losses_config = self.task_config.loss
-    losses_obj = contractive_losses.ContrastiveLoss(
+    losses_obj = contrastive_losses.ContrastiveLoss(
         projection_norm=losses_config.projection_norm,
         temperature=losses_config.temperature)
     # The projection outputs from model has the size of

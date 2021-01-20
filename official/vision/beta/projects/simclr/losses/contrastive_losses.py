@@ -133,3 +133,10 @@ class ContrastiveLoss(object):
     loss_local = tf.reduce_mean(loss_a_local + loss_b_local)
 
     return loss_local, (logits_ab, labels)
+
+  def get_config(self):
+    config = {
+        'projection_norm': self._projection_norm,
+        'temperature': self._temperature,
+    }
+    return config
