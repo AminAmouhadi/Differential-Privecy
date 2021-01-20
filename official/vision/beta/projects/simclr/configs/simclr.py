@@ -34,7 +34,7 @@ class Decoder(hyperparams.Config):
 
 @dataclasses.dataclass
 class Parser(hyperparams.Config):
-  aug_rand_crop: bool = True,
+  aug_rand_crop: bool = True
   aug_rand_hflip: bool = True
   aug_color_distort: bool = True
   aug_color_jitter_strength: float = 1.0
