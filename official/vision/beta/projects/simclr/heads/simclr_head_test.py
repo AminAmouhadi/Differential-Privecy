@@ -94,3 +94,7 @@ class ClassificationHeadTest(tf.test.TestCase, parameterized.TestCase):
 
     self.assertAllEqual(out_x.shape.as_list(),
                         [None, num_classes])
+
+
+if __name__ == '__main__':
+  tf.test.main()

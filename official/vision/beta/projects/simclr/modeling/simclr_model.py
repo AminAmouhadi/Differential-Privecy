@@ -64,11 +64,12 @@ class SimCLRModel(tf.keras.Model):
 
     # Base network forward pass.
     endpoints = self._back_bone(features, training=training)
-    projections = endpoints[max(endpoints.keys())]
+    features = endpoints[max(endpoints.keys())]
+    projection_inputs = layers.GlobalAveragePooling2D()(features)
 
     # Add heads.
     projection_outputs, supervised_inputs = self._projection_head(
-        projections, training)
+        projection_inputs, training)
 
     if self._supervised_head:
       if self._mode == PRETRAIN:
