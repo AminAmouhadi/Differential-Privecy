@@ -33,6 +33,7 @@ class SimCLRModel(tf.keras.Model):
                supervised_head=None,
                input_specs=layers.InputSpec(shape=[None, None, None, 3]),
                mode: str = PRETRAIN,
+               backbone_trainable: bool = True,
                **kwargs):
     super(SimCLRModel, self).__init__(**kwargs)
     self._config_dict = {
@@ -41,12 +42,17 @@ class SimCLRModel(tf.keras.Model):
         'supervised_head': supervised_head,
         'input_specs': input_specs,
         'mode': mode,
+        'backbone_trainable': backbone_trainable,
     }
     self._input_specs = input_specs
-    self._back_bone = backbone
+    self._backbone = backbone
     self._projection_head = projection_head
     self._supervised_head = supervised_head
     self._mode = mode
+    self._backbone_trainable = backbone_trainable
+
+    # Set whether the backbone is trainable
+    self._backbone.trainable = backbone_trainable
 
   def call(self, inputs, training=None, **kwargs):
     model_outputs = {}
@@ -63,7 +69,7 @@ class SimCLRModel(tf.keras.Model):
     features = tf.concat(features_list, 0)
 
     # Base network forward pass.
-    endpoints = self._back_bone(features, training=training)
+    endpoints = self._backbone(features, training=training)
     features = endpoints[max(endpoints.keys())]
     projection_inputs = layers.GlobalAveragePooling2D()(features)
 

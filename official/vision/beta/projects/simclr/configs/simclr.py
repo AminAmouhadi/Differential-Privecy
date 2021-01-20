@@ -101,6 +101,7 @@ class SimCLRModel(hyperparams.Config):
   norm_activation: common.NormActivation = common.NormActivation(
       use_sync_bn=False)
   mode: str = simclr_model.PRETRAIN
+  backbone_trainable: bool = True
 
 
 @dataclasses.dataclass
@@ -173,6 +174,7 @@ def simclr_pretraining_imagenet() -> cfg.ExperimentConfig:
       task=SimCLRPretrainTask(
           model=SimCLRModel(
               mode=simclr_model.PRETRAIN,
+              backbone_trainable=True,
               input_size=[224, 224, 3],
               backbone=backbones.Backbone(
                   type='resnet', resnet=backbones.ResNet(model_id=50)),
@@ -256,6 +258,7 @@ def simclr_finetuning_imagenet() -> cfg.ExperimentConfig:
       task=SimCLRFinetuneTask(
           model=SimCLRModel(
               mode=simclr_model.FINETUNE,
+              backbone_trainable=True,
               input_size=[224, 224, 3],
               backbone=backbones.Backbone(
                   type='resnet', resnet=backbones.ResNet(model_id=50)),

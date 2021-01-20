@@ -105,7 +105,8 @@ class SimCLRPretrainTask(base_task.Task):
         backbone=backbone,
         projection_head=projection_head,
         supervised_head=supervised_head,
-        mode=simclr_model.PRETRAIN)
+        mode=model_config.mode,
+        backbone_trainable=model_config.backbone_trainable)
 
     return model
 
@@ -353,7 +354,8 @@ class SimCLRFinetuneTask(base_task.Task):
         backbone=backbone,
         projection_head=projection_head,
         supervised_head=supervised_head,
-        mode=simclr_model.FINETUNE)
+        mode=model_config.mode,
+        backbone_trainable=model_config.backbone_trainable)
 
     return model
 

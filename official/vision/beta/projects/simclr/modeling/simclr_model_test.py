@@ -20,8 +20,6 @@ from absl.testing import parameterized
 import numpy as np
 import tensorflow as tf
 
-from tensorflow.python.distribute import combinations
-from tensorflow.python.distribute import strategy_combinations
 from official.vision.beta.modeling import backbones
 from official.vision.beta.projects.simclr.heads import simclr_head
 from official.vision.beta.projects.simclr.modeling import simclr_model
