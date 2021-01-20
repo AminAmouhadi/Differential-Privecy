@@ -78,15 +78,19 @@ class SimCLRPretrainTask(base_task.Task):
 
     backbone = backbones.factory.build_backbone(
         input_specs=input_specs,
-        model_config=model_config.backbone,
+        model_config=model_config,
         l2_regularizer=l2_regularizer if not use_lars else None)
 
+    norm_activation_config = model_config.norm_activation
     projection_head_config = model_config.projection_head
     projection_head = simclr_head.ProjectionHead(
         proj_output_dim=projection_head_config.proj_output_dim,
         num_proj_layers=projection_head_config.num_proj_layers,
         ft_proj_idx=projection_head_config.ft_proj_idx,
-        kernel_regularizer=l2_regularizer if not use_lars else None)
+        kernel_regularizer=l2_regularizer if not use_lars else None,
+        use_sync_bn=norm_activation_config.use_sync_bn,
+        norm_momentum=norm_activation_config.norm_momentum,
+        norm_epsilon=norm_activation_config.norm_epsilon)
 
     supervised_head_config = model_config.supervised_head
     if supervised_head_config:
@@ -325,15 +329,19 @@ class SimCLRFinetuneTask(base_task.Task):
 
     backbone = backbones.factory.build_backbone(
         input_specs=input_specs,
-        model_config=model_config.backbone,
+        model_config=model_config,
         l2_regularizer=l2_regularizer if not use_lars else None)
 
+    norm_activation_config = model_config.norm_activation
     projection_head_config = model_config.projection_head
     projection_head = simclr_head.ProjectionHead(
         proj_output_dim=projection_head_config.proj_output_dim,
         num_proj_layers=projection_head_config.num_proj_layers,
         ft_proj_idx=projection_head_config.ft_proj_idx,
-        kernel_regularizer=l2_regularizer if not use_lars else None)
+        kernel_regularizer=l2_regularizer if not use_lars else None,
+        use_sync_bn=norm_activation_config.use_sync_bn,
+        norm_momentum=norm_activation_config.norm_momentum,
+        norm_epsilon=norm_activation_config.norm_epsilon)
 
     supervised_head_config = model_config.supervised_head
     supervised_head = simclr_head.ClassificationHead(

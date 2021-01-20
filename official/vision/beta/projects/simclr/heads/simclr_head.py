@@ -35,6 +35,9 @@ class ProjectionHead(tf.keras.layers.Layer):
       kernel_initializer: Text = 'VarianceScaling',
       kernel_regularizer: Optional[regularizers.Regularizer] = None,
       bias_regularizer: Optional[regularizers.Regularizer] = None,
+      use_sync_bn: bool = False,
+      norm_momentum: float = 0.99,
+      norm_epsilon: float = 0.001,
       **kwargs):
     super(ProjectionHead, self).__init__(**kwargs)
 
@@ -47,6 +50,9 @@ class ProjectionHead(tf.keras.layers.Layer):
     self._kernel_initializer = kernel_initializer
     self._kernel_regularizer = kernel_regularizer
     self._bias_regularizer = bias_regularizer
+    self._use_sync_bn = use_sync_bn
+    self._norm_momentum = norm_momentum
+    self._norm_epsilon = norm_epsilon
     self._layers = []
 
   def get_config(self):
@@ -57,6 +63,9 @@ class ProjectionHead(tf.keras.layers.Layer):
         'kernel_initializer': self._kernel_initializer,
         'kernel_regularizer': self._kernel_regularizer,
         'bias_regularizer': self._bias_regularizer,
+        'use_normalization': self._use_normalization,
+        'norm_momentum': self._norm_momentum,
+        'norm_epsilon': self._norm_epsilon
     }
     base_config = super(ProjectionHead, self).get_config()
     return dict(list(base_config.items()) + list(config.items()))
@@ -77,6 +86,9 @@ class ProjectionHead(tf.keras.layers.Layer):
               kernel_initializer=self._kernel_initializer,
               kernel_regularizer=self._kernel_regularizer,
               bias_regularizer=self._bias_regularizer,
+              use_sync_bn=self._use_sync_bn,
+              norm_momentum=self._norm_momentum,
+              norm_epsilon=self._norm_epsilon,
               name='nl_%d' % j)
         else:
           # for the final layer, neither bias nor relu is used.
@@ -87,6 +99,9 @@ class ProjectionHead(tf.keras.layers.Layer):
               activation=None,
               kernel_regularizer=self._kernel_regularizer,
               kernel_initializer=self._kernel_initializer,
+              use_sync_bn=self._use_sync_bn,
+              norm_momentum=self._norm_momentum,
+              norm_epsilon=self._norm_epsilon,
               name='nl_%d' % j)
         self._layers.append(layer)
     super(ProjectionHead, self).build(input_shape)
