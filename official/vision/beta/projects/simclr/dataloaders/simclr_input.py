@@ -47,6 +47,9 @@ from official.vision.beta.projects.simclr.dataloaders import \
   preprocess_ops as simclr_preprocess_ops
 from official.vision.beta.projects.simclr.modeling import simclr_model
 
+MEAN_RGB = (0.485 * 255, 0.456 * 255, 0.406 * 255)
+STDDEV_RGB = (0.229 * 255, 0.224 * 255, 0.225 * 255)
+
 
 class Decoder(decoder.Decoder):
   """A tf.Example decoder for classification task."""
@@ -136,6 +139,9 @@ class Parser(parser.Parser):
     else:
       image = tf.image.decode_jpeg(image_bytes, channels=3)
 
+    # Convert image to self._dtype.
+    image = tf.image.convert_image_dtype(image, self._dtype)
+
     if self._aug_rand_hflip:
       image = tf.image.random_flip_left_right(image)
 
@@ -150,7 +156,10 @@ class Parser(parser.Parser):
           image, image_shape[0], image_shape[1])
 
     image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
-    image = tf.clip_by_value(image, 0., 1.)
+    # Normalizes image with mean and std pixel values.
+    image = preprocess_ops.normalize_image(image,
+                                           offset=MEAN_RGB,
+                                           scale=STDDEV_RGB)
     return image
 
   def _parse_train_data(self, decoded_tensors):
@@ -190,8 +199,14 @@ class Parser(parser.Parser):
     else:
       image = tf.image.decode_jpeg(image_bytes, channels=3)
 
+    # Convert image to self._dtype.
+    image = tf.image.convert_image_dtype(image, self._dtype)
+
     image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
-    image = tf.clip_by_value(image, 0., 1.)
+    # Normalizes image with mean and std pixel values.
+    image = preprocess_ops.normalize_image(image,
+                                           offset=MEAN_RGB,
+                                           scale=STDDEV_RGB)
 
     if self._parse_label:
       label = tf.cast(decoded_tensors['image/class/label'], dtype=tf.int32)

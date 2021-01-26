@@ -25,6 +25,24 @@ def random_apply(func, p, x):
           tf.cast(p, tf.float32)), lambda: func(x), lambda: x)
 
 
+def normalize_image(image,
+                    offset=(0.485, 0.456, 0.406),
+                    scale=(0.229, 0.224, 0.225)):
+  """Normalizes the image to zero mean and unit variance."""
+  with tf.name_scope('normalize_image'):
+    image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+    offset = tf.constant(offset)
+    offset = tf.expand_dims(offset, axis=0)
+    offset = tf.expand_dims(offset, axis=0)
+    image -= offset
+
+    scale = tf.constant(scale)
+    scale = tf.expand_dims(scale, axis=0)
+    scale = tf.expand_dims(scale, axis=0)
+    image /= scale
+    return image
+
+
 def random_brightness(image, max_delta, impl='simclrv2'):
   """A multiplicative vs additive change of brightness."""
   if impl == 'simclrv2':
