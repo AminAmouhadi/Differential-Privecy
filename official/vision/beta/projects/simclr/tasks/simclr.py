@@ -305,8 +305,8 @@ class SimCLRPretrainTask(base_task.Task):
     logs = {self.loss: losses['total_loss']}
 
     for m in metrics:
-      metrics[m].update_state(labels, outputs['supervised_outputs'])
-      logs.update({m: metrics[m].result()})
+      m.update_state(labels, outputs['supervised_outputs'])
+      logs.update({m.name: m.result()})
 
     return logs
 
