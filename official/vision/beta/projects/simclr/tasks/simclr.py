@@ -140,7 +140,7 @@ class SimCLRPretrainTask(base_task.Task):
     decoder = simclr_input.Decoder(params.decoder.decode_label)
     parser = simclr_input.Parser(
         output_size=input_size[:2],
-        aug_rand_crop=params.parser.aug_rang_crop,
+        aug_rand_crop=params.parser.aug_rand_crop,
         aug_rand_hflip=params.parser.aug_rand_hflip,
         aug_color_distort=params.parser.aug_color_distort,
         aug_color_jitter_strength=params.parser.aug_color_jitter_strength,
