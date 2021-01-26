@@ -219,10 +219,10 @@ class SimCLRPretrainTask(base_task.Task):
 
     return losses
 
-  def build_metrics(self, training=True) -> Dict[str, tf.keras.metrics.Metric]:
+  def build_metrics(self, training=True):
 
     if training:
-      metrics = {}
+      metrics = []
       metric_names = [
           'total_loss',
           'contrast_loss',
@@ -232,23 +232,19 @@ class SimCLRPretrainTask(base_task.Task):
       if self.task_config.model.supervised_head:
         metric_names.extend(['supervised_loss', 'accuracy'])
       for name in metric_names:
-        metrics[name] = tf.keras.metrics.Mean(name, dtype=tf.float32)
+        metrics.append(tf.keras.metrics.Mean(name, dtype=tf.float32))
     else:
       k = self.task_config.evaluation.top_k
       if self.task_config.evaluation.one_hot:
-        metrics = {
-            'top_1_accuracy': tf.keras.metrics.CategoricalAccuracy(
-                name='top_1_accuracy'),
-            'top_k_accuracy': tf.keras.metrics.TopKCategoricalAccuracy(
-                k=k, name='top_{}_accuracy'.format(k))
-        }
+        metrics = [
+            tf.keras.metrics.CategoricalAccuracy(name='accuracy'),
+            tf.keras.metrics.TopKCategoricalAccuracy(
+                k=k, name='top_{}_accuracy'.format(k))]
       else:
-        metrics = {
-            'top_1_accuracy': tf.keras.metrics.SparseCategoricalAccuracy(
-                name='top_1_accuracy'),
-            'top_k_accuracy': tf.keras.metrics.SparseTopKCategoricalAccuracy(
-                k=k, name='top_{}_accuracy'.format(k))
-        }
+        metrics = [
+            tf.keras.metrics.SparseCategoricalAccuracy(name='accuracy'),
+            tf.keras.metrics.SparseTopKCategoricalAccuracy(
+                k=k, name='top_{}_accuracy'.format(k))]
     return metrics
 
   def train_step(self, inputs, model, optimizer, metrics=None):
@@ -282,8 +278,8 @@ class SimCLRPretrainTask(base_task.Task):
     logs = {self.loss: losses['total_loss']}
 
     for m in metrics:
-      metrics[m].update_state(losses[m])
-      logs.update({m: metrics[m].result()})
+      m.update_state(losses[m.name])
+      logs.update({m.name: m.result()})
 
     return logs
 
