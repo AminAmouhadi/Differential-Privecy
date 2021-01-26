@@ -249,6 +249,11 @@ class SimCLRPretrainTask(base_task.Task):
 
   def train_step(self, inputs, model, optimizer, metrics=None):
     features, labels = inputs
+    if (self.task_config.model.supervised_head
+        and self.task_config.evaluation.one_hot):
+      num_classes = self.task_config.model.supervised_head.num_classes
+      labels = tf.one_hot(labels, num_classes)
+
     num_replicas = tf.distribute.get_strategy().num_replicas_in_sync
     with tf.GradientTape() as tape:
       outputs = model(features, training=True)
