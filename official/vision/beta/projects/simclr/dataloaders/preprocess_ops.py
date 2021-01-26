@@ -245,7 +245,7 @@ def gaussian_blur(image, kernel_size, sigma, padding='SAME'):
   return blurred
 
 
-def random_blur(image, height, width, p=1.0):
+def random_blur(image, height, width, p=0.5):
   """Randomly blur an image.
 
   Args:

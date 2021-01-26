@@ -139,6 +139,10 @@ class Parser(parser.Parser):
     else:
       image = tf.image.decode_jpeg(image_bytes, channels=3)
 
+    # Resizes image.
+    image = tf.image.resize(
+        image, self._output_size, method=tf.image.ResizeMethod.BILINEAR)
+
     # Convert image to self._dtype.
     image = tf.image.convert_image_dtype(image, self._dtype)
 
@@ -198,6 +202,9 @@ class Parser(parser.Parser):
       image = preprocess_ops.center_crop_image_v2(image_bytes, image_shape)
     else:
       image = tf.image.decode_jpeg(image_bytes, channels=3)
+
+    image = tf.image.resize(
+        image, self._output_size, method=tf.image.ResizeMethod.BILINEAR)
 
     # Convert image to self._dtype.
     image = tf.image.convert_image_dtype(image, self._dtype)
