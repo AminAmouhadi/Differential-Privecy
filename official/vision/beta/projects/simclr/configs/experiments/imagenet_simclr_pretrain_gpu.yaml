@@ -1,0 +1,66 @@
+# ImageNet classification.
+runtime:
+  distribution_strategy: 'mirrored'
+  mixed_precision_dtype: 'float16'
+  loss_scale: 'dynamic'
+task:
+  model:
+    mode: 'pretrain'
+    input_size: [224, 224, 3]
+    backbone:
+      type: 'resnet'
+      resnet:
+        model_id: 50
+    backbone_trainable: true
+    projection_head:
+      proj_output_dim: 128
+      num_proj_layers: 3
+      ft_proj_idx: 1
+    supervised_head:
+      num_classes: 1001
+  loss:
+    projection_norm: true
+    temperature: 1.0
+  evaluation:
+    top_k: 5
+    one_hot: true
+  weight_decay: 0.0001
+  optimizer: 'lars'
+  train_data:
+    input_path: 'imagenet-2012-tfrecord/train*'
+    is_training: true
+    global_batch_size: 4096
+    dtype: 'float16'
+    parser:
+      mode: 'pretrain'
+  validation_data:
+    input_path: 'imagenet-2012-tfrecord/valid*'
+    is_training: true
+    global_batch_size: 4096
+    dtype: 'float16'
+    drop_remainder: false
+    parser:
+      mode: 'pretrain'
+trainer:
+  train_steps: 156000  # 500 epochs
+  validation_steps: 12 # NUM_EXAMPLES (50000) // global_batch_size
+  validation_interval: 312
+  steps_per_loop: 312  # NUM_EXAMPLES (1281167) // global_batch_size
+  summary_interval: 312
+  checkpoint_interval: 312
+  optimizer_config:
+    optimizer:
+      type: 'lars'
+      lars:
+        momentum: 0.9
+        weight_decay_rate: 0.0001
+        exclude_from_weight_decay: ['batch_normalization', 'bias', 'head_supervised']
+    learning_rate:
+      type: 'cosine'
+      cosine:
+        initial_learning_rate: 6.4  #  0.1 × sqrt(BatchSize)
+        decay_steps: 148200 # train_steps - warmup_steps
+    warmup:
+      type: 'linear'
+      linear:
+        warmup_steps: 7800 # 5% of total epochs
