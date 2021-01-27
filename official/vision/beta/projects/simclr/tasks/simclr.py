@@ -293,7 +293,7 @@ class SimCLRPretrainTask(base_task.Task):
       assert "Skipping eval during pretraining without supervised head."
 
     features, labels = inputs
-    if self.task_config.evaludation.one_hot:
+    if self.task_config.evaluation.one_hot:
       num_classes = self.task_config.model.supervised_head.num_classes
       labels = tf.one_hot(labels, num_classes)
 
