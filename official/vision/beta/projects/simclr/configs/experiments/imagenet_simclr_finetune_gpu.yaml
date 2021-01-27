@@ -35,7 +35,7 @@ task:
       mode: 'finetune'
   validation_data:
     input_path: 'imagenet-2012-tfrecord/valid*'
-    is_training: true
+    is_training: false
     global_batch_size: 1024
     dtype: 'float16'
     drop_remainder: false

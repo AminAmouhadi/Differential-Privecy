@@ -297,23 +297,17 @@ class SimCLRPretrainTask(base_task.Task):
       num_classes = self.task_config.model.supervised_head.num_classes
       labels = tf.one_hot(labels, num_classes)
 
-    outputs = self.inference_step(features, model)
-    for item in outputs:
-      outputs[item] = tf.nest.map_structure(
-          lambda x: tf.cast(x, tf.float32), outputs[item])
+    outputs = self.inference_step(features, model)['supervised_outputs']
+    outputs = tf.nest.map_structure(lambda x: tf.cast(x, tf.float32), outputs)
 
-    losses = self.build_losses(
-        model_outputs=outputs, labels=labels, aux_losses=model.losses)
+    logs = {self.loss: 0}
 
-    logs = {self.loss: losses['total_loss']}
-
-    supervised_outputs = outputs['supervised_outputs']
     if metrics:
-      self.process_metrics(metrics, labels, supervised_outputs)
+      self.process_metrics(metrics, labels, outputs)
       logs.update({m.name: m.result() for m in metrics})
     elif model.compiled_metrics:
       self.process_compiled_metrics(model.compiled_metrics,
-                                    labels, supervised_outputs)
+                                    labels, outputs)
       logs.update({m.name: m.result() for m in model.metrics})
 
     return logs
@@ -533,8 +527,7 @@ class SimCLRFinetuneTask(base_task.Task):
       labels = tf.one_hot(labels, num_classes)
 
     outputs = self.inference_step(features, model)['supervised_outputs']
-    outputs = tf.nest.map_structure(
-        lambda x: tf.cast(x, tf.float32), outputs)
+    outputs = tf.nest.map_structure(lambda x: tf.cast(x, tf.float32), outputs)
     loss = self.build_losses(model_outputs=outputs,
                              labels=labels, aux_losses=model.losses)
 
