@@ -83,9 +83,9 @@ class SimCLRModel(tf.keras.Model):
         # want information from supervised evaluation flowing back into
         # pretraining network. So we put a stop_gradient.
         supervised_outputs = self._supervised_head(
-            tf.stop_gradient(supervised_inputs))
+            tf.stop_gradient(supervised_inputs), training)
       else:
-        supervised_outputs = self._supervised_head(supervised_inputs)
+        supervised_outputs = self._supervised_head(supervised_inputs, training)
     else:
       supervised_outputs = None
 

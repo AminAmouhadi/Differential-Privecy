@@ -201,20 +201,24 @@ class SimCLRPretrainTask(base_task.Task):
     if self.task_config.model.supervised_head:
       outputs = model_outputs['supervised_outputs']
       labels = tf.concat([labels, labels], 0)
+
       if self.task_config.evaluation.one_hot:
-        sup_loss = tf.keras.losses.categorical_crossentropy(
-            labels, outputs, from_logits=True)
+        sup_loss = tf.keras.losses.CategoricalCrossentropy(
+            from_logits=True, reduction=tf.keras.losses.Reduction.NONE)(
+            labels, outputs)
       else:
-        sup_loss = tf.keras.losses.sparse_categorical_crossentropy(
-            labels, outputs, from_logits=True)
-      sup_loss = tf_utils.safe_mean(sup_loss)
+        sup_loss = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True, reduction=tf.keras.losses.Reduction.NONE)(
+            labels, outputs)
+      sup_loss = tf.reduce_mean(sup_loss)
 
       label_acc = tf.equal(tf.argmax(labels, 1), tf.argmax(outputs, axis=1))
       label_acc = tf.reduce_mean(tf.cast(label_acc, tf.float32))
+
       losses.update({
           'accuracy': label_acc,
           'supervised_loss': sup_loss,
-          'total_loss': losses['total_loss'] + sup_loss
+          'total_loss': total_loss + sup_loss
       })
 
     return losses
@@ -260,8 +264,9 @@ class SimCLRPretrainTask(base_task.Task):
       # Casting output layer as float32 is necessary when mixed_precision is
       # mixed_float16 or mixed_bfloat16 to ensure output is casted as float32.
       for item in outputs:
-        outputs[item] = tf.nest.map_structure(
-            lambda x: tf.cast(x, tf.float32), outputs[item])
+        if item:
+          outputs[item] = tf.nest.map_structure(
+              lambda x: tf.cast(x, tf.float32), outputs[item])
 
       # Computes per-replica loss.
       losses = self.build_losses(
@@ -274,6 +279,9 @@ class SimCLRPretrainTask(base_task.Task):
         scaled_loss = optimizer.get_scaled_loss(scaled_loss)
 
     tvars = model.trainable_variables
+    logging.info('Trainable variables:')
+    for var in tvars:
+      logging.info(var.name)
     grads = tape.gradient(scaled_loss, tvars)
     # Scales back gradient when LossScaleOptimizer is used.
     if isinstance(optimizer, tf.keras.mixed_precision.LossScaleOptimizer):
@@ -306,8 +314,7 @@ class SimCLRPretrainTask(base_task.Task):
       self.process_metrics(metrics, labels, outputs)
       logs.update({m.name: m.result() for m in metrics})
     elif model.compiled_metrics:
-      self.process_compiled_metrics(model.compiled_metrics,
-                                    labels, outputs)
+      self.process_compiled_metrics(model.compiled_metrics, labels, outputs)
       logs.update({m.name: m.result() for m in model.metrics})
 
     return logs

@@ -154,8 +154,7 @@ class ClassificationHead(tf.keras.layers.Layer):
         output_dim=self._num_classes,
         kernel_initializer=self._kernel_initializer,
         kernel_regularizer=self._kernel_regularizer,
-        bias_regularizer=self._bias_regularizer,
-    )
+        bias_regularizer=self._bias_regularizer)
     super(ClassificationHead, self).build(input_shape)
 
   def call(self, inputs, training=None):
