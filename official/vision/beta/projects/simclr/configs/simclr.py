@@ -16,6 +16,7 @@
 """SimCLR configurations"""
 from typing import List, Optional
 import os
+import math
 import dataclasses
 
 from official.core import config_definitions as cfg
@@ -117,7 +118,7 @@ class SimCLRPretrainTask(cfg.TaskConfig):
   # all or backbone
   init_checkpoint_modules: str = 'all'
   optimizer: str = 'lars'
-  weight_decay: float = 1e-6
+  weight_decay: float = 1e-4
 
 
 @dataclasses.dataclass
@@ -131,8 +132,8 @@ class SimCLRFinetuneTask(cfg.TaskConfig):
   init_checkpoint: Optional[str] = None
   # all, backbone_projection or backbone
   init_checkpoint_modules: str = 'backbone_projection'
-  optimizer: str = 'sgd'
-  weight_decay: float = 1e-6
+  optimizer: str = 'lars'
+  weight_decay: float = 0.0
 
 
 @exp_factory.register_config_factory('simclr_pretraining')
@@ -184,27 +185,29 @@ def simclr_pretraining_imagenet() -> cfg.ExperimentConfig:
                   ft_proj_idx=1),
               supervised_head=SupervisedHead(num_classes=1001),
               norm_activation=common.NormActivation(
-                  norm_momentum=0.9, norm_epsilon=1e-5, use_sync_bn=False)),
+                  norm_momentum=0.9, norm_epsilon=1e-5, use_sync_bn=True)),
           loss=ContrastiveLoss(),
           evaluation=Evaluation(),
           train_data=DataConfig(
               parser=Parser(mode=simclr_model.PRETRAIN),
+              decoder=Decoder(decode_label=True),
               input_path=os.path.join(IMAGENET_INPUT_PATH_BASE, 'train*'),
               is_training=True,
               global_batch_size=train_batch_size),
           validation_data=DataConfig(
               parser=Parser(mode=simclr_model.PRETRAIN),
+              decoder=Decoder(decode_label=True),
               input_path=os.path.join(IMAGENET_INPUT_PATH_BASE, 'valid*'),
               is_training=False,
               global_batch_size=eval_batch_size),
-          weight_decay=1e-6,
+          weight_decay=0.0001,
           optimizer='lars'
       ),
       trainer=cfg.TrainerConfig(
           steps_per_loop=steps_per_epoch,
           summary_interval=steps_per_epoch,
           checkpoint_interval=steps_per_epoch,
-          train_steps=90 * steps_per_epoch,
+          train_steps=500 * steps_per_epoch,
           validation_steps=IMAGENET_VAL_EXAMPLES // eval_batch_size,
           validation_interval=steps_per_epoch,
           optimizer_config=optimization.OptimizationConfig({
@@ -212,31 +215,26 @@ def simclr_pretraining_imagenet() -> cfg.ExperimentConfig:
                   'type': 'lars',
                   'lars': {
                       'momentum': 0.9,
-                      'weight_decay_rate': 0.0,
+                      'weight_decay_rate': 0.0001,
                       'exclude_from_weight_decay': [
                           'batch_normalization', 'bias', 'head_supervised']
                   }
               },
               'learning_rate': {
-                  'type': 'stepwise',
-                  'stepwise': {
-                      'boundaries': [
-                          30 * steps_per_epoch, 60 * steps_per_epoch,
-                          80 * steps_per_epoch
-                      ],
-                      'values': [
-                          0.1 * train_batch_size / 256,
-                          0.01 * train_batch_size / 256,
-                          0.001 * train_batch_size / 256,
-                          0.0001 * train_batch_size / 256,
-                      ]
+                  'type': 'cosine',
+                  'cosine': {
+                      # 0.1 × sqrt(BatchSize)
+                      'initial_learning_rate': 0.1 * math.sqrt(
+                          train_batch_size),
+                      # train_steps - warmup_steps
+                      'decay_steps': 475 * steps_per_epoch
                   }
               },
               'warmup': {
                   'type': 'linear',
                   'linear': {
-                      'warmup_steps': 5 * steps_per_epoch,
-                      'warmup_learning_rate': 0
+                      # 5% of total epochs
+                      'warmup_steps': 25 * steps_per_epoch
                   }
               }
           })),
@@ -250,8 +248,8 @@ def simclr_pretraining_imagenet() -> cfg.ExperimentConfig:
 def simclr_finetuning_imagenet() -> cfg.ExperimentConfig:
   """Image classification general."""
   """Image classification general."""
-  train_batch_size = 4096
-  eval_batch_size = 4096
+  train_batch_size = 1024
+  eval_batch_size = 1024
   steps_per_epoch = IMAGENET_TRAIN_EXAMPLES // train_batch_size
   pretrain_model_base = ""
   return cfg.ExperimentConfig(
@@ -280,7 +278,7 @@ def simclr_finetuning_imagenet() -> cfg.ExperimentConfig:
               input_path=os.path.join(IMAGENET_INPUT_PATH_BASE, 'valid*'),
               is_training=False,
               global_batch_size=eval_batch_size),
-          weight_decay=1e-6,
+          weight_decay=0.0,
           optimizer='lars',
           init_checkpoint=pretrain_model_base,
           # all, backbone_projection or backbone
@@ -289,7 +287,7 @@ def simclr_finetuning_imagenet() -> cfg.ExperimentConfig:
           steps_per_loop=steps_per_epoch,
           summary_interval=steps_per_epoch,
           checkpoint_interval=steps_per_epoch,
-          train_steps=90 * steps_per_epoch,
+          train_steps=60 * steps_per_epoch,
           validation_steps=IMAGENET_VAL_EXAMPLES // eval_batch_size,
           validation_interval=steps_per_epoch,
           optimizer_config=optimization.OptimizationConfig({
@@ -303,25 +301,12 @@ def simclr_finetuning_imagenet() -> cfg.ExperimentConfig:
                   }
               },
               'learning_rate': {
-                  'type': 'stepwise',
-                  'stepwise': {
-                      'boundaries': [
-                          30 * steps_per_epoch, 60 * steps_per_epoch,
-                          80 * steps_per_epoch
-                      ],
-                      'values': [
-                          0.1 * train_batch_size / 256,
-                          0.01 * train_batch_size / 256,
-                          0.001 * train_batch_size / 256,
-                          0.0001 * train_batch_size / 256,
-                      ]
-                  }
-              },
-              'warmup': {
-                  'type': 'linear',
-                  'linear': {
-                      'warmup_steps': 5 * steps_per_epoch,
-                      'warmup_learning_rate': 0
+                  'type': 'cosine',
+                  'cosine': {
+                      # 0.005 × sqrt(BatchSize)
+                      'initial_learning_rate': 0.005 * math.sqrt(
+                          train_batch_size),
+                      'decay_steps': 60 * steps_per_epoch
                   }
               }
           })),

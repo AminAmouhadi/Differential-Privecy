@@ -49,7 +49,6 @@ from official.core import base_task
 from official.core import input_reader
 from official.core import task_factory
 from official.modeling import tf_utils
-from official.vision.beta.modeling import factory
 from official.vision.beta.modeling import backbones
 from official.vision.beta.projects.simclr.configs import simclr as exp_cfg
 from official.vision.beta.projects.simclr.modeling import simclr_model
@@ -76,11 +75,13 @@ class SimCLRPretrainTask(base_task.Task):
 
     use_lars = 'lars' in self.task_config.optimizer
 
+    # Build backbone
     backbone = backbones.factory.build_backbone(
         input_specs=input_specs,
         model_config=model_config,
         l2_regularizer=l2_regularizer if not use_lars else None)
 
+    # Build projection head
     norm_activation_config = model_config.norm_activation
     projection_head_config = model_config.projection_head
     projection_head = simclr_head.ProjectionHead(
@@ -92,6 +93,7 @@ class SimCLRPretrainTask(base_task.Task):
         norm_momentum=norm_activation_config.norm_momentum,
         norm_epsilon=norm_activation_config.norm_epsilon)
 
+    # Build supervised head
     supervised_head_config = model_config.supervised_head
     if supervised_head_config:
       supervised_head = simclr_head.ClassificationHead(
@@ -161,15 +163,14 @@ class SimCLRPretrainTask(base_task.Task):
 
     return dataset
 
-  def build_losses(
-      self,
-      labels,
-      model_outputs,
-      aux_losses=None) -> Dict[str, tf.Tensor]:
-    losses_config = self.task_config.loss
+  def build_losses(self,
+                   labels,
+                   model_outputs,
+                   aux_losses=None) -> Dict[str, tf.Tensor]:
+    # Compute contrastive relative loss
     losses_obj = contrastive_losses.ContrastiveLoss(
-        projection_norm=losses_config.projection_norm,
-        temperature=losses_config.temperature)
+        projection_norm=self.task_config.loss.projection_norm,
+        temperature=self.task_config.loss.temperature)
     # The projection outputs from model has the size of
     # (2 * bsz, project_dim)
     projection_outputs = model_outputs['projection_outputs']
@@ -198,8 +199,8 @@ class SimCLRPretrainTask(base_task.Task):
     }
 
     if self.task_config.model.supervised_head:
-      labels = tf.concat([labels, labels], 0)
       outputs = model_outputs['supervised_outputs']
+      labels = tf.concat([labels, labels], 0)
       if self.task_config.evaluation.one_hot:
         sup_loss = tf.keras.losses.categorical_crossentropy(
             labels, outputs, from_logits=True)
@@ -208,8 +209,7 @@ class SimCLRPretrainTask(base_task.Task):
             labels, outputs, from_logits=True)
       sup_loss = tf_utils.safe_mean(sup_loss)
 
-      label_acc = tf.equal(tf.argmax(labels, 1),
-                           tf.argmax(outputs, axis=1))
+      label_acc = tf.equal(tf.argmax(labels, 1), tf.argmax(outputs, axis=1))
       label_acc = tf.reduce_mean(tf.cast(label_acc, tf.float32))
       losses.update({
           'accuracy': label_acc,
@@ -289,6 +289,9 @@ class SimCLRPretrainTask(base_task.Task):
     return logs
 
   def validation_step(self, inputs, model, metrics=None):
+    if not self.task_config.model.supervised_head:
+      assert "Skipping eval during pretraining without supervised head."
+
     features, labels = inputs
     if self.task_config.evaludation.one_hot:
       num_classes = self.task_config.model.supervised_head.num_classes
@@ -304,9 +307,14 @@ class SimCLRPretrainTask(base_task.Task):
 
     logs = {self.loss: losses['total_loss']}
 
-    for m in metrics:
-      m.update_state(labels, outputs['supervised_outputs'])
-      logs.update({m.name: m.result()})
+    supervised_outputs = outputs['supervised_outputs']
+    if metrics:
+      self.process_metrics(metrics, labels, supervised_outputs)
+      logs.update({m.name: m.result() for m in metrics})
+    elif model.compiled_metrics:
+      self.process_compiled_metrics(model.compiled_metrics,
+                                    labels, supervised_outputs)
+      logs.update({m.name: m.result() for m in model.metrics})
 
     return logs
 
@@ -470,16 +478,15 @@ class SimCLRFinetuneTask(base_task.Task):
       labels = tf.one_hot(labels, num_classes)
     num_replicas = tf.distribute.get_strategy().num_replicas_in_sync
     with tf.GradientTape() as tape:
-      outputs = model(features, training=True)
+      outputs = model(features, training=True)['supervised_outputs']
       # Casting output layer as float32 is necessary when mixed_precision is
       # mixed_float16 or mixed_bfloat16 to ensure output is casted as float32.
-      for item in outputs:
-        outputs[item] = tf.nest.map_structure(
-            lambda x: tf.cast(x, tf.float32), outputs[item])
+      outputs = tf.nest.map_structure(
+          lambda x: tf.cast(x, tf.float32), outputs)
 
       # Computes per-replica loss.
       loss = self.build_losses(
-          model_outputs=outputs['supervised_outputs'],
+          model_outputs=outputs,
           labels=labels, aux_losses=model.losses)
       # Scales loss as the default gradients allreduce performs sum inside the
       # optimizer.
@@ -525,11 +532,10 @@ class SimCLRFinetuneTask(base_task.Task):
       num_classes = self.task_config.model.supervised_head_config.num_classes
       labels = tf.one_hot(labels, num_classes)
 
-    outputs = self.inference_step(features, model)
-    for item in outputs:
-      outputs[item] = tf.nest.map_structure(
-          lambda x: tf.cast(x, tf.float32), outputs[item])
-    loss = self.build_losses(model_outputs=outputs['supervised_outputs'],
+    outputs = self.inference_step(features, model)['supervised_outputs']
+    outputs = tf.nest.map_structure(
+        lambda x: tf.cast(x, tf.float32), outputs)
+    loss = self.build_losses(model_outputs=outputs,
                              labels=labels, aux_losses=model.losses)
 
     logs = {self.loss: loss}

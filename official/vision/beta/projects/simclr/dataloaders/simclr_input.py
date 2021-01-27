@@ -139,15 +139,15 @@ class Parser(parser.Parser):
     else:
       image = tf.image.decode_jpeg(image_bytes, channels=3)
 
-    # Resizes image.
-    image = tf.image.resize(
-        image, self._output_size, method=tf.image.ResizeMethod.BILINEAR)
-
-    # Convert image to self._dtype.
-    image = tf.image.convert_image_dtype(image, self._dtype)
+    # This line convert the image to float 0.0 - 1.0
+    image = tf.image.convert_image_dtype(image, dtype=tf.float32)
 
     if self._aug_rand_hflip:
       image = tf.image.random_flip_left_right(image)
+
+    # Resizes image.
+    image = tf.image.resize(
+        image, self._output_size, method=tf.image.ResizeMethod.BILINEAR)
 
     if self._aug_color_distort:
       image = simclr_preprocess_ops.random_color_jitter(
@@ -164,6 +164,10 @@ class Parser(parser.Parser):
     image = preprocess_ops.normalize_image(image,
                                            offset=MEAN_RGB,
                                            scale=STDDEV_RGB)
+    image = tf.clip_by_value(image, 0., 1.)
+    # Convert image to self._dtype.
+    image = tf.image.convert_image_dtype(image, self._dtype)
+
     return image
 
   def _parse_train_data(self, decoded_tensors):
@@ -203,17 +207,21 @@ class Parser(parser.Parser):
     else:
       image = tf.image.decode_jpeg(image_bytes, channels=3)
 
+    # This line convert the image to float 0.0 - 1.0
+    image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+
     image = tf.image.resize(
         image, self._output_size, method=tf.image.ResizeMethod.BILINEAR)
-
-    # Convert image to self._dtype.
-    image = tf.image.convert_image_dtype(image, self._dtype)
 
     image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
     # Normalizes image with mean and std pixel values.
     image = preprocess_ops.normalize_image(image,
                                            offset=MEAN_RGB,
                                            scale=STDDEV_RGB)
+    image = tf.clip_by_value(image, 0., 1.)
+
+    # Convert image to self._dtype.
+    image = tf.image.convert_image_dtype(image, self._dtype)
 
     if self._parse_label:
       label = tf.cast(decoded_tensors['image/class/label'], dtype=tf.int32)
