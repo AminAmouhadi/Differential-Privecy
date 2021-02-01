@@ -32,7 +32,7 @@ task:
   train_data:
     input_path: 'imagenet-2012-tfrecord/train*'
     is_training: true
-    global_batch_size: 4096
+    global_batch_size: 2048
     dtype: 'float16'
     parser:
       mode: 'pretrain'
@@ -41,7 +41,7 @@ task:
   validation_data:
     input_path: 'imagenet-2012-tfrecord/valid*'
     is_training: false
-    global_batch_size: 4096
+    global_batch_size: 2048
     dtype: 'float16'
     drop_remainder: false
     parser:
@@ -49,12 +49,12 @@ task:
     decoder:
       decode_label: true
 trainer:
-  train_steps: 156000  # 500 epochs
-  validation_steps: 12 # NUM_EXAMPLES (50000) // global_batch_size
-  validation_interval: 312
-  steps_per_loop: 312  # NUM_EXAMPLES (1281167) // global_batch_size
-  summary_interval: 312
-  checkpoint_interval: 312
+  train_steps: 312000  # 500 epochs
+  validation_steps: 24 # NUM_EXAMPLES (50000) // global_batch_size
+  validation_interval: 624
+  steps_per_loop: 624  # NUM_EXAMPLES (1281167) // global_batch_size
+  summary_interval: 624
+  checkpoint_interval: 624
   optimizer_config:
     optimizer:
       type: 'lars'
@@ -65,9 +65,9 @@ trainer:
     learning_rate:
       type: 'cosine'
       cosine:
-        initial_learning_rate: 6.4  #  0.1 × sqrt(BatchSize)
-        decay_steps: 148200 # train_steps - warmup_steps
+        initial_learning_rate: 4.5  #  0.1 × sqrt(BatchSize)
+        decay_steps: 296400 # train_steps - warmup_steps
     warmup:
       type: 'linear'
       linear:
-        warmup_steps: 7800 # 5% of total epochs
+        warmup_steps: 15600 # 5% of total epochs

@@ -404,6 +404,7 @@ class SimCLRFinetuneTask(base_task.Task):
     decoder = simclr_input.Decoder(params.decoder.decode_label)
     parser = simclr_input.Parser(
         output_size=input_size[:2],
+        parse_label=params.parser.parse_label,
         test_crop=params.parser.test_crop,
         mode=params.parser.mode,
         dtype=params.dtype)
@@ -477,13 +478,13 @@ class SimCLRFinetuneTask(base_task.Task):
     if self.task_config.losses.one_hot:
       num_classes = self.task_config.model.supervised_head_config.num_classes
       labels = tf.one_hot(labels, num_classes)
+
     num_replicas = tf.distribute.get_strategy().num_replicas_in_sync
     with tf.GradientTape() as tape:
       outputs = model(features, training=True)['supervised_outputs']
       # Casting output layer as float32 is necessary when mixed_precision is
       # mixed_float16 or mixed_bfloat16 to ensure output is casted as float32.
-      outputs = tf.nest.map_structure(
-          lambda x: tf.cast(x, tf.float32), outputs)
+      outputs = tf.nest.map_structure(lambda x: tf.cast(x, tf.float32), outputs)
 
       # Computes per-replica loss.
       loss = self.build_losses(
@@ -500,6 +501,9 @@ class SimCLRFinetuneTask(base_task.Task):
         scaled_loss = optimizer.get_scaled_loss(scaled_loss)
 
     tvars = model.trainable_variables
+    logging.info('Trainable variables:')
+    for var in tvars:
+      logging.info(var.name)
     grads = tape.gradient(scaled_loss, tvars)
     # Scales back gradient before apply_gradients when LossScaleOptimizer is
     # used.

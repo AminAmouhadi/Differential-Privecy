@@ -129,6 +129,7 @@ class SimCLRFinetuneTask(cfg.TaskConfig):
   validation_data: DataConfig = DataConfig(
       parser=Parser(mode=simclr_model.FINETUNE), is_training=False)
   loss: ClassificationLosses = ClassificationLosses()
+  evaluation: Evaluation = Evaluation()
   init_checkpoint: Optional[str] = None
   # all, backbone_projection or backbone
   init_checkpoint_modules: str = 'backbone_projection'
@@ -268,6 +269,7 @@ def simclr_finetuning_imagenet() -> cfg.ExperimentConfig:
               norm_activation=common.NormActivation(
                   norm_momentum=0.9, norm_epsilon=1e-5, use_sync_bn=False)),
           loss=ClassificationLosses(),
+          evaluation=Evaluation(),
           train_data=DataConfig(
               parser=Parser(mode=simclr_model.FINETUNE),
               input_path=os.path.join(IMAGENET_INPUT_PATH_BASE, 'train*'),
