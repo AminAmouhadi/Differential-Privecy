@@ -60,3 +60,7 @@ trainer:
       cosine:
         initial_learning_rate: 0.16  #  0.005 × sqrt(BatchSize)
         decay_steps: 75060 # train_steps
+    warmup:
+      type: 'linear'
+      linear:
+        warmup_steps: 7800 # 5% of total epochs

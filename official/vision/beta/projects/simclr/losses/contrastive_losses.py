@@ -99,7 +99,7 @@ class ContrastiveLoss(object):
     num_replicas_in_sync = tf.distribute.get_strategy().num_replicas_in_sync
     if num_replicas_in_sync > 1:
       p1_global = cross_replica_concat(p1_local, num_replicas_in_sync)
-      p2_global = cross_replica_concat(projection2, num_replicas_in_sync)
+      p2_global = cross_replica_concat(p2_local, num_replicas_in_sync)
       global_batch_size = tf.shape(p1_global)[0]
       # TODO: more elegant way to convert u32 to s32 for replica_id.
       replica_context = tf.distribute.get_replica_context()

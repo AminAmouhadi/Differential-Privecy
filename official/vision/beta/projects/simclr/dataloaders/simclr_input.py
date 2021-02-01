@@ -160,10 +160,10 @@ class Parser(parser.Parser):
           image, image_shape[0], image_shape[1])
 
     image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
-    # Normalizes image with mean and std pixel values.
-    image = preprocess_ops.normalize_image(image,
-                                           offset=MEAN_RGB,
-                                           scale=STDDEV_RGB)
+    # # Normalizes image with mean and std pixel values.
+    # image = preprocess_ops.normalize_image(image,
+    #                                        offset=MEAN_RGB,
+    #                                        scale=STDDEV_RGB)
     image = tf.clip_by_value(image, 0., 1.)
     # Convert image to self._dtype.
     image = tf.image.convert_image_dtype(image, self._dtype)
@@ -214,10 +214,10 @@ class Parser(parser.Parser):
         image, self._output_size, method=tf.image.ResizeMethod.BILINEAR)
 
     image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
-    # Normalizes image with mean and std pixel values.
-    image = preprocess_ops.normalize_image(image,
-                                           offset=MEAN_RGB,
-                                           scale=STDDEV_RGB)
+    # # Normalizes image with mean and std pixel values.
+    # image = preprocess_ops.normalize_image(image,
+    #                                        offset=MEAN_RGB,
+    #                                        scale=STDDEV_RGB)
     image = tf.clip_by_value(image, 0., 1.)
 
     # Convert image to self._dtype.

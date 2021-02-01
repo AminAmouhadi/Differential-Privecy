@@ -187,7 +187,7 @@ class SimCLRPretrainTask(base_task.Task):
     contrast_entropy = -tf.reduce_mean(
         tf.reduce_sum(contrast_prob * tf.math.log(contrast_prob + 1e-8), -1))
 
-    total_loss = tf_utils.safe_mean(contrast_loss)
+    total_loss = contrast_loss
     if aux_losses:
       total_loss += tf.add_n(aux_losses)
 
