@@ -110,8 +110,6 @@ class SimCLRPretrainTask(base_task.Task):
         mode=model_config.mode,
         backbone_trainable=model_config.backbone_trainable)
 
-    logging.info(model.summary())
-
     return model
 
   def initialize(self, model: tf.keras.Model):
