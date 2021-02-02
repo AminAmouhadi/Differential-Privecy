@@ -252,7 +252,7 @@ class SimCLRPretrainTask(base_task.Task):
       # Casting output layer as float32 is necessary when mixed_precision is
       # mixed_float16 or mixed_bfloat16 to ensure output is casted as float32.
       for item in outputs:
-        if outputs[item]:
+        if outputs[item] is not None:
           outputs[item] = tf.nest.map_structure(
               lambda x: tf.cast(x, tf.float32), outputs[item])
 
