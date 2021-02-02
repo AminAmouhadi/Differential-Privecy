@@ -118,7 +118,7 @@ class SimCLRPretrainTask(cfg.TaskConfig):
   # all or backbone
   init_checkpoint_modules: str = 'all'
   optimizer: str = 'lars'
-  weight_decay: float = 1e-4
+  weight_decay: float = 1e-6
 
 
 @dataclasses.dataclass
@@ -201,7 +201,7 @@ def simclr_pretraining_imagenet() -> cfg.ExperimentConfig:
               input_path=os.path.join(IMAGENET_INPUT_PATH_BASE, 'valid*'),
               is_training=False,
               global_batch_size=eval_batch_size),
-          weight_decay=0.0001,
+          weight_decay=0.000001,
           optimizer='lars'
       ),
       trainer=cfg.TrainerConfig(
@@ -216,7 +216,7 @@ def simclr_pretraining_imagenet() -> cfg.ExperimentConfig:
                   'type': 'lars',
                   'lars': {
                       'momentum': 0.9,
-                      'weight_decay_rate': 0.0001,
+                      'weight_decay_rate': 0.000001,
                       'exclude_from_weight_decay': [
                           'batch_normalization', 'bias', 'head_supervised']
                   }

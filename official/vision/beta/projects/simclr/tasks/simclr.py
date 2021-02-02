@@ -201,10 +201,11 @@ class SimCLRPretrainTask(base_task.Task):
       label_acc = tf.equal(tf.argmax(labels, 1), tf.argmax(outputs, axis=1))
       label_acc = tf.reduce_mean(tf.cast(label_acc, tf.float32))
 
+      total_loss += tf.add_n(sup_loss)
+
       losses.update({
           'accuracy': label_acc,
-          'supervised_loss': sup_loss,
-          'total_loss': total_loss + sup_loss
+          'supervised_loss': sup_loss
       })
 
     return losses
@@ -250,7 +251,7 @@ class SimCLRPretrainTask(base_task.Task):
       # Casting output layer as float32 is necessary when mixed_precision is
       # mixed_float16 or mixed_bfloat16 to ensure output is casted as float32.
       for item in outputs:
-        if item:
+        if outputs[item]:
           outputs[item] = tf.nest.map_structure(
               lambda x: tf.cast(x, tf.float32), outputs[item])
 

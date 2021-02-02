@@ -149,13 +149,13 @@ class Parser(parser.Parser):
     image = tf.image.resize(
         image, self._output_size, method=tf.image.ResizeMethod.BILINEAR)
 
-    if self._aug_color_distort:
+    if self._aug_color_distort and self._mode == simclr_model.PRETRAIN:
       image = simclr_preprocess_ops.random_color_jitter(
           image=image,
           color_jitter_strength=self._aug_color_jitter_strength,
           impl=self._aug_color_jitter_impl)
 
-    if self._aug_rand_blur:
+    if self._aug_rand_blur and self._mode == simclr_model.PRETRAIN:
       image = simclr_preprocess_ops.random_blur(
           image, image_shape[0], image_shape[1])
 
@@ -172,14 +172,13 @@ class Parser(parser.Parser):
 
   def _parse_train_data(self, decoded_tensors):
     """Parses data for training."""
+    image_bytes = decoded_tensors['image/encoded']
+    image_shape = tf.image.extract_jpeg_shape(image_bytes)
 
     if self._mode == simclr_model.FINETUNE:
-      # for fine tuning, no augmentation is performed while training
-      return self._parse_eval_data(decoded_tensors)
+      image = self._parse_one_train_image(image_bytes, image_shape)
 
     elif self._mode == simclr_model.PRETRAIN:
-      image_bytes = decoded_tensors['image/encoded']
-      image_shape = tf.image.extract_jpeg_shape(image_bytes)
       # Transform each example twice using a combination of
       # simple augmentations, resulting in 2N data points
       xs = []

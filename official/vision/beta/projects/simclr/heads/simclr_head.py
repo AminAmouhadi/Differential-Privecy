@@ -126,11 +126,11 @@ class ProjectionHead(tf.keras.layers.Layer):
     super(ProjectionHead, self).build(input_shape)
 
   def call(self, inputs, training=None):
-    proj_finetune_output = None
     hiddens_list = [tf.identity(inputs, 'proj_head_input')]
 
     if self._num_proj_layers == 0:
       proj_head_output = inputs
+      proj_finetune_output = inputs
     else:
       for j in range(self._num_proj_layers):
         hiddens = self._layers[j](hiddens_list[-1], training)
