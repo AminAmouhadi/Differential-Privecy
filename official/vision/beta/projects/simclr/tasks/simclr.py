@@ -178,7 +178,6 @@ class SimCLRPretrainTask(base_task.Task):
       total_loss += tf.add_n(aux_losses)
 
     losses = {
-        'total_loss': total_loss,
         'contrast_loss': contrast_loss,
         'contrast_accuracy': contrast_accuracy,
         'contrast_entropy': contrast_entropy
@@ -201,12 +200,14 @@ class SimCLRPretrainTask(base_task.Task):
       label_acc = tf.equal(tf.argmax(labels, 1), tf.argmax(outputs, axis=1))
       label_acc = tf.reduce_mean(tf.cast(label_acc, tf.float32))
 
-      total_loss += tf.add_n(sup_loss)
+      total_loss += sup_loss
 
       losses.update({
           'accuracy': label_acc,
-          'supervised_loss': sup_loss
+          'supervised_loss': sup_loss,
       })
+
+    losses['total_loss'] = total_loss
 
     return losses
 
