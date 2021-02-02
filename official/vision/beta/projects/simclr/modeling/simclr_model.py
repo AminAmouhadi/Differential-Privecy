@@ -93,7 +93,7 @@ class SimCLRModel(tf.keras.Model):
     projection_outputs, supervised_inputs = self._projection_head(
         projection_inputs, training)
 
-    if self._supervised_head is not None:
+    if self._supervised_head:
       if self._mode == PRETRAIN:
         # When performing pretraining and supervised_head together, we do not
         # want information from supervised evaluation flowing back into
