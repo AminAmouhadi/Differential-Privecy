@@ -94,6 +94,8 @@ class SimCLRPretrainTask(base_task.Task):
         mode=model_config.mode,
         backbone_trainable=model_config.backbone_trainable)
 
+    logging.info(model.get_config())
+
     return model
 
   def initialize(self, model: tf.keras.Model):
@@ -351,6 +353,8 @@ class SimCLRFinetuneTask(base_task.Task):
         mode=model_config.mode,
         backbone_trainable=model_config.backbone_trainable)
 
+    logging.info(model.get_config())
+
     return model
 
   def initialize(self, model: tf.keras.Model):
@@ -416,7 +420,7 @@ class SimCLRFinetuneTask(base_task.Task):
     Returns:
       The total loss tensor.
     """
-    losses_config = self.task_config.losses
+    losses_config = self.task_config.loss
     if losses_config.one_hot:
       total_loss = tf.keras.losses.categorical_crossentropy(
           labels,
@@ -461,8 +465,8 @@ class SimCLRFinetuneTask(base_task.Task):
       A dictionary of logs.
     """
     features, labels = inputs
-    if self.task_config.losses.one_hot:
-      num_classes = self.task_config.model.supervised_head_config.num_classes
+    if self.task_config.loss.one_hot:
+      num_classes = self.task_config.model.supervised_head.num_classes
       labels = tf.one_hot(labels, num_classes)
 
     num_replicas = tf.distribute.get_strategy().num_replicas_in_sync
@@ -519,8 +523,8 @@ class SimCLRFinetuneTask(base_task.Task):
       A dictionary of logs.
     """
     features, labels = inputs
-    if self.task_config.losses.one_hot:
-      num_classes = self.task_config.model.supervised_head_config.num_classes
+    if self.task_config.loss.one_hot:
+      num_classes = self.task_config.model.supervised_head.num_classes
       labels = tf.one_hot(labels, num_classes)
 
     outputs = self.inference_step(features, model)['supervised_outputs']
