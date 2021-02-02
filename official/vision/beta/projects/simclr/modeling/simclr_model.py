@@ -15,6 +15,7 @@
 """Build simclr models."""
 
 # Import libraries
+from typing import Optional
 import tensorflow as tf
 
 layers = tf.keras.layers
@@ -28,13 +29,25 @@ class SimCLRModel(tf.keras.Model):
   """A classification model based on SimCLR framework."""
 
   def __init__(self,
-               backbone,
-               projection_head,
-               supervised_head=None,
+               backbone: tf.keras.models.Model,
+               projection_head: tf.keras.layers.Layer,
+               supervised_head: Optional[tf.keras.layers.Layer] = None,
                input_specs=layers.InputSpec(shape=[None, None, None, 3]),
                mode: str = PRETRAIN,
                backbone_trainable: bool = True,
                **kwargs):
+    """A classification model based on SimCLR framework.
+
+    Args:
+      backbone: a backbone network.
+      projection_head: a projection head network.
+      supervised_head: a head network for supervised learning, e.g.
+        classification head.
+      input_specs: `tf.keras.layers.InputSpec` specs of the input tensor.
+      mode: `str` indicates mode of training to be executed.
+      backbone_trainable: `bool` whether the backbone is trainable or not.
+      **kwargs: keyword arguments to be passed.
+    """
     super(SimCLRModel, self).__init__(**kwargs)
     self._config_dict = {
         'backbone': backbone,
@@ -119,6 +132,19 @@ class SimCLRModel(tf.keras.Model):
   @property
   def mode(self):
     return self._mode
+
+  @mode.setter
+  def mode(self, value):
+    self._mode = value
+
+  @property
+  def backbone_trainable(self):
+    return self._backbone_trainable
+
+  @backbone_trainable.setter
+  def backbone_trainable(self, value):
+    self._backbone_trainable = value
+    self._backbone.trainable = value
 
   def get_config(self):
     return self._config_dict

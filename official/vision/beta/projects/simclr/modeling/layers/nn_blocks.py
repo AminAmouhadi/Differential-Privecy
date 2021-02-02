@@ -44,7 +44,7 @@ class DenseBN(tf.keras.layers.Layer):
       bias_regularizer: Optional[regularizers.Regularizer] = None,
       name='linear_layer',
       **kwargs):
-    """
+    """Customized Dense layer.
 
     Args:
       output_dim: `int` size of output dimension.

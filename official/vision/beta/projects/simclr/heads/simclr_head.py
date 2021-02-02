@@ -19,7 +19,6 @@ from typing import Text, Optional
 
 import tensorflow as tf
 
-from official.modeling import tf_utils
 from official.vision.beta.projects.simclr.modeling.layers import nn_blocks
 
 regularizers = tf.keras.regularizers
@@ -39,6 +38,26 @@ class ProjectionHead(tf.keras.layers.Layer):
       norm_momentum: float = 0.99,
       norm_epsilon: float = 0.001,
       **kwargs):
+    """The projection head used during pretraining of SimCLR. It is used
+    together with a backbone net e.g. Resnet or Mobilenet.
+
+    Args:
+      num_proj_layers: `int` number of Dense layers used.
+      proj_output_dim: `int` output dimension of projection head, i.e., output
+        dimension of the final layer.
+      ft_proj_idx: `int` index of layer to use during fine-tuning. 0 means no
+        projection head during fine tuning, -1 means the final layer.
+      kernel_initializer: kernel_initializer for convolutional layers.
+      kernel_regularizer: tf.keras.regularizers.Regularizer object for Conv2D.
+        Default to None.
+      bias_regularizer: tf.keras.regularizers.Regularizer object for Conv2d.
+        Default to None.
+      use_sync_bn: if True, use synchronized batch normalization.
+      norm_momentum: `float` normalization omentum for the moving average.
+      norm_epsilon: `float` small float added to variance to avoid dividing by
+        zero.
+      **kwargs: keyword arguments to be passed.
+    """
     super(ProjectionHead, self).__init__(**kwargs)
 
     assert proj_output_dim is not None or num_proj_layers == 0
@@ -132,6 +151,20 @@ class ClassificationHead(tf.keras.layers.Layer):
       bias_regularizer: Optional[regularizers.Regularizer] = None,
       name: Text = 'head_supervised',
       **kwargs):
+    """The classification head used during pretraining or fine tuning
+    of SimCLR.
+
+    Args:
+      num_classes: `int` size of the output dimension or number of classes
+        for classification task.
+      kernel_initializer: kernel_initializer for convolutional layers.
+      kernel_regularizer: tf.keras.regularizers.Regularizer object for Conv2D.
+        Default to None.
+      bias_regularizer: tf.keras.regularizers.Regularizer object for Conv2d.
+        Default to None.
+      name: `str`, name of the layer.
+      **kwargs: keyword arguments to be passed.
+    """
     super(ClassificationHead, self).__init__(name=name, **kwargs)
     self._num_classes = num_classes
     self._kernel_initializer = kernel_initializer

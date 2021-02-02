@@ -26,22 +26,6 @@ the task definition:
 - projection_head and/or supervised_head
 """
 
-# Lint as: python3
-# Copyright 2020 The TensorFlow Authors. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# ==============================================================================
-"""Image classification task definition."""
 from typing import Dict
 from absl import logging
 import tensorflow as tf
@@ -395,6 +379,8 @@ class SimCLRFinetuneTask(base_task.Task):
     else:
       assert "Only 'all' or 'backbone' can be used to initialize the model."
 
+    # If the checkpoint is from pretraining, reset the following parameters
+    model.backbone_trainable = self.task_config.model.backbone_trainable
     logging.info('Finished loading pretrained checkpoint from %s',
                  ckpt_dir_or_file)
 
