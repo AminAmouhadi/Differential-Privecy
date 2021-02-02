@@ -23,6 +23,9 @@ layers = tf.keras.layers
 PRETRAIN = 'pretrain'
 FINETUNE = 'finetune'
 
+PROJECTION_OUTPUT_KEY = 'projection_outputs'
+SUPERVISED_OUTPUT_KEY = 'supervised_outputs'
+
 
 @tf.keras.utils.register_keras_serializable(package="simclr")
 class SimCLRModel(tf.keras.Model):
@@ -103,8 +106,8 @@ class SimCLRModel(tf.keras.Model):
       supervised_outputs = None
 
     model_outputs.update({
-        'projection_outputs': projection_outputs,
-        'supervised_outputs': supervised_outputs
+        PROJECTION_OUTPUT_KEY: projection_outputs,
+        SUPERVISED_OUTPUT_KEY: supervised_outputs
     })
 
     return model_outputs

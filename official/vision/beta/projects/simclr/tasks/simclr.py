@@ -159,7 +159,7 @@ class SimCLRPretrainTask(base_task.Task):
         temperature=self.task_config.loss.temperature)
     # The projection outputs from model has the size of
     # (2 * bsz, project_dim)
-    projection_outputs = model_outputs['projection_outputs']
+    projection_outputs = model_outputs[simclr_model.PROJECTION_OUTPUT_KEY]
     projection1, projection2 = tf.split(projection_outputs, 2, 0)
     contrast_loss, (contrast_logits, contrast_labels) = losses_obj(
         projection1=projection1,
@@ -185,7 +185,7 @@ class SimCLRPretrainTask(base_task.Task):
     }
 
     if self.task_config.model.supervised_head:
-      outputs = model_outputs['supervised_outputs']
+      outputs = model_outputs[simclr_model.SUPERVISED_OUTPUT_KEY]
       labels = tf.concat([labels, labels], 0)
 
       if self.task_config.evaluation.one_hot:
@@ -291,7 +291,8 @@ class SimCLRPretrainTask(base_task.Task):
       num_classes = self.task_config.model.supervised_head.num_classes
       labels = tf.one_hot(labels, num_classes)
 
-    outputs = self.inference_step(features, model)['supervised_outputs']
+    outputs = self.inference_step(
+        features, model)[simclr_model.SUPERVISED_OUTPUT_KEY]
     outputs = tf.nest.map_structure(lambda x: tf.cast(x, tf.float32), outputs)
 
     logs = {self.loss: 0}
@@ -471,7 +472,8 @@ class SimCLRFinetuneTask(base_task.Task):
 
     num_replicas = tf.distribute.get_strategy().num_replicas_in_sync
     with tf.GradientTape() as tape:
-      outputs = model(features, training=True)['supervised_outputs']
+      outputs = model(
+          features, training=True)[simclr_model.SUPERVISED_OUTPUT_KEY]
       # Casting output layer as float32 is necessary when mixed_precision is
       # mixed_float16 or mixed_bfloat16 to ensure output is casted as float32.
       outputs = tf.nest.map_structure(lambda x: tf.cast(x, tf.float32), outputs)
@@ -527,7 +529,8 @@ class SimCLRFinetuneTask(base_task.Task):
       num_classes = self.task_config.model.supervised_head.num_classes
       labels = tf.one_hot(labels, num_classes)
 
-    outputs = self.inference_step(features, model)['supervised_outputs']
+    outputs = self.inference_step(
+        features, model)[simclr_model.SUPERVISED_OUTPUT_KEY]
     outputs = tf.nest.map_structure(lambda x: tf.cast(x, tf.float32), outputs)
     loss = self.build_losses(model_outputs=outputs,
                              labels=labels, aux_losses=model.losses)
