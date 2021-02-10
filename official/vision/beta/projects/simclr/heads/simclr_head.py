@@ -26,6 +26,8 @@ regularizers = tf.keras.regularizers
 
 @tf.keras.utils.register_keras_serializable(package='simclr')
 class ProjectionHead(tf.keras.layers.Layer):
+  """Projection head."""
+
   def __init__(
       self,
       num_proj_layers: int = 3,
@@ -38,8 +40,7 @@ class ProjectionHead(tf.keras.layers.Layer):
       norm_momentum: float = 0.99,
       norm_epsilon: float = 0.001,
       **kwargs):
-    """The projection head used during pretraining of SimCLR. It is used
-    together with a backbone net e.g. Resnet or Mobilenet.
+    """The projection head used during pretraining of SimCLR.
 
     Args:
       num_proj_layers: `int` number of Dense layers used.
@@ -143,6 +144,8 @@ class ProjectionHead(tf.keras.layers.Layer):
 
 @tf.keras.utils.register_keras_serializable(package='simclr')
 class ClassificationHead(tf.keras.layers.Layer):
+  """Classification Head."""
+
   def __init__(
       self,
       num_classes: int,
@@ -151,8 +154,7 @@ class ClassificationHead(tf.keras.layers.Layer):
       bias_regularizer: Optional[regularizers.Regularizer] = None,
       name: Text = 'head_supervised',
       **kwargs):
-    """The classification head used during pretraining or fine tuning
-    of SimCLR.
+    """The classification head used during pretraining or fine tuning.
 
     Args:
       num_classes: `int` size of the output dimension or number of classes

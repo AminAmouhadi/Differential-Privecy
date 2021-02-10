@@ -14,9 +14,10 @@
 # limitations under the License.
 # ==============================================================================
 """SimCLR configurations"""
-from typing import List, Optional
-import os
 import math
+import os
+from typing import List, Optional
+
 import dataclasses
 
 from official.core import config_definitions as cfg

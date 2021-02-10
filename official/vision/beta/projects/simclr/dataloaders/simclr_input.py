@@ -71,6 +71,24 @@ class Decoder(decoder.Decoder):
         serialized_example, self._keys_to_features)
 
 
+class TFDSDecoder(decoder.Decoder):
+  """A TFDS decoder for classification task."""
+
+  def __init__(self, decode_label=True):
+    self._decode_label = decode_label
+
+  def decode(self, serialized_example):
+    sample_dict = {
+        'image/encoded': tf.io.encode_jpeg(
+            serialized_example['image'], quality=100),
+    }
+    if self._decode_label:
+      sample_dict.update({
+          'image/class/label': serialized_example['label'],
+      })
+    return sample_dict
+
+
 class Parser(parser.Parser):
   """Parser for SimCLR training."""
 

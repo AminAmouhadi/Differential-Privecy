@@ -52,7 +52,7 @@ class DenseBNTest(tf.test.TestCase, parameterized.TestCase):
       if use_bias:
         # bias of dense layer
         train_var_len += 1
-    self.assertEqual(len(test_layer.trainable_variables), train_var_len)
+    self.assertLen(test_layer.trainable_variables, train_var_len)
 
 
 if __name__ == '__main__':

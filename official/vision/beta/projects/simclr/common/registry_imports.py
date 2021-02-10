@@ -19,4 +19,4 @@ from official.common import registry_imports
 from official.vision.beta.projects.simclr.configs import simclr
 from official.vision.beta.projects.simclr.losses import contrastive_losses
 from official.vision.beta.projects.simclr.modeling import simclr_model
-from official.vision.beta.projects.simclr.tasks import simclr
+from official.vision.beta.projects.simclr.tasks import simclr as simclr_task

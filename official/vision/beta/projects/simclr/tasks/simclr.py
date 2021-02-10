@@ -125,7 +125,11 @@ class SimCLRPretrainTask(base_task.Task):
   def build_inputs(self, params, input_context=None):
     input_size = self.task_config.model.input_size
 
-    decoder = simclr_input.Decoder(params.decoder.decode_label)
+    if params.tfds_name:
+      decoder = simclr_input.TFDSDecoder(params.decoder.decode_label)
+    else:
+      decoder = simclr_input.Decoder(params.decoder.decode_label)
+
     parser = simclr_input.Parser(
         output_size=input_size[:2],
         aug_rand_crop=params.parser.aug_rand_crop,
@@ -394,7 +398,10 @@ class SimCLRFinetuneTask(base_task.Task):
   def build_inputs(self, params, input_context=None):
     input_size = self.task_config.model.input_size
 
-    decoder = simclr_input.Decoder(params.decoder.decode_label)
+    if params.tfds_name:
+      decoder = simclr_input.TFDSDecoder(params.decoder.decode_label)
+    else:
+      decoder = simclr_input.Decoder(params.decoder.decode_label)
     parser = simclr_input.Parser(
         output_size=input_size[:2],
         parse_label=params.parser.parse_label,

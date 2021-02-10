@@ -22,6 +22,7 @@ from official.vision.beta.projects.simclr.heads import simclr_head
 
 
 class ProjectionHeadTest(tf.test.TestCase, parameterized.TestCase):
+
   @parameterized.parameters(
       (0, None),
       (1, 128),
@@ -67,7 +68,7 @@ class ProjectionHeadTest(tf.test.TestCase, parameterized.TestCase):
 
     if num_proj_layers == 0:
       self.assertAllClose(inputs, proj_head_output)
-      self.assertTrue(proj_finetune_output is None)
+      self.assertIsNone(proj_finetune_output)
     else:
       self.assertAllEqual(proj_head_output.shape.as_list(),
                           [batch_size, proj_output_dim])
@@ -82,6 +83,7 @@ class ProjectionHeadTest(tf.test.TestCase, parameterized.TestCase):
 
 
 class ClassificationHeadTest(tf.test.TestCase, parameterized.TestCase):
+
   @parameterized.parameters(
       10, 20
   )
