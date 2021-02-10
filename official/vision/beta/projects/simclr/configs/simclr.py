@@ -74,7 +74,7 @@ class SupervisedHead(hyperparams.Config):
 @dataclasses.dataclass
 class ContrastiveLoss(hyperparams.Config):
   projection_norm: bool = True
-  temperature: float = 1.0
+  temperature: float = 0.1
 
 
 @dataclasses.dataclass

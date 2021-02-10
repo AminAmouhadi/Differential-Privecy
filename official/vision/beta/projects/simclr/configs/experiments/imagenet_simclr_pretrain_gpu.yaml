@@ -23,7 +23,7 @@ task:
       use_sync_bn: true
   loss:
     projection_norm: true
-    temperature: 1.0
+    temperature: 0.1
   evaluation:
     top_k: 5
     one_hot: true
