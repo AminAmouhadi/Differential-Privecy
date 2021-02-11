@@ -101,7 +101,7 @@ class SimCLRModel(hyperparams.Config):
       ft_proj_idx=0)
   supervised_head: SupervisedHead = SupervisedHead(num_classes=1001)
   norm_activation: common.NormActivation = common.NormActivation(
-      use_sync_bn=False)
+      norm_momentum=0.9, norm_epsilon=1e-5, use_sync_bn=False)
   mode: str = simclr_model.PRETRAIN
   backbone_trainable: bool = True
 

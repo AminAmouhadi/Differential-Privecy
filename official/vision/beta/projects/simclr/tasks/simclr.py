@@ -192,14 +192,12 @@ class SimCLRPretrainTask(base_task.Task):
       labels = tf.concat([labels, labels], 0)
 
       if self.task_config.evaluation.one_hot:
-        sup_loss = tf.keras.losses.CategoricalCrossentropy(
-            from_logits=True, reduction=tf.keras.losses.Reduction.NONE)(
-            labels, outputs)
+        sup_loss = tf.keras.losses.categorical_crossentropy(
+            labels, outputs, from_logits=True)
       else:
-        sup_loss = tf.keras.losses.SparseCategoricalCrossentropy(
-            from_logits=True, reduction=tf.keras.losses.Reduction.NONE)(
-            labels, outputs)
-      sup_loss = tf.reduce_mean(sup_loss)
+        sup_loss = tf.keras.losses.sparse_categorical_crossentropy(
+            labels, outputs, from_logits=True)
+      sup_loss = tf_utils.safe_mean(sup_loss)
 
       label_acc = tf.equal(tf.argmax(labels, 1), tf.argmax(outputs, axis=1))
       label_acc = tf.reduce_mean(tf.cast(label_acc, tf.float32))

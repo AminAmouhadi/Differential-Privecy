@@ -21,6 +21,8 @@ task:
       num_classes: 1001
     norm_activation:
       use_sync_bn: true
+      norm_momentum: 0.9
+      norm_epsilon: 0.00001
   loss:
     projection_norm: true
     temperature: 0.1
@@ -65,7 +67,7 @@ trainer:
     learning_rate:
       type: 'cosine'
       cosine:
-        initial_learning_rate: 4.5  #  0.1 × sqrt(BatchSize)
+        initial_learning_rate: 4.5  #  0.075 × sqrt(BatchSize)
         decay_steps: 296400 # train_steps - warmup_steps
     warmup:
       type: 'linear'

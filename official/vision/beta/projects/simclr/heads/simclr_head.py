@@ -139,6 +139,8 @@ class ProjectionHead(tf.keras.layers.Layer):
       proj_head_output = tf.identity(hiddens_list[-1], 'proj_head_output')
       proj_finetune_output = hiddens_list[self._ft_proj_idx]
 
+    # The first element is the output of the projection head.
+    # The second element is the input of the finetune head.
     return proj_head_output, proj_finetune_output
 
 
