@@ -36,19 +36,15 @@ For fine-tuning:
 typical image classification input
 """
 
-from typing import List, Optional
+from typing import List
 # Import libraries
 import tensorflow as tf
 
 from official.vision.beta.dataloaders import decoder
 from official.vision.beta.dataloaders import parser
-from official.vision.beta.ops import preprocess_ops
 from official.vision.beta.projects.simclr.dataloaders import \
   preprocess_ops as simclr_preprocess_ops
 from official.vision.beta.projects.simclr.modeling import simclr_model
-
-MEAN_RGB = (0.485 * 255, 0.456 * 255, 0.406 * 255)
-STDDEV_RGB = (0.229 * 255, 0.224 * 255, 0.225 * 255)
 
 
 class Decoder(decoder.Decoder):
@@ -147,25 +143,17 @@ class Parser(parser.Parser):
       raise ValueError('dtype {!r} is not supported!'.format(dtype))
 
   def _parse_one_train_image(self, image_bytes, image_shape):
-    if self._aug_rand_crop:
-      cropped_image = preprocess_ops.random_crop_image_v2(
-          image_bytes, image_shape)
-      image = tf.cond(
-          tf.reduce_all(tf.equal(tf.shape(cropped_image), image_shape)),
-          lambda: preprocess_ops.center_crop_image_v2(image_bytes, image_shape),
-          lambda: cropped_image)
-    else:
-      image = tf.image.decode_jpeg(image_bytes, channels=3)
 
+    image = tf.image.decode_jpeg(image_bytes, channels=3)
     # This line convert the image to float 0.0 - 1.0
     image = tf.image.convert_image_dtype(image, dtype=tf.float32)
 
+    if self._aug_rand_crop:
+      image = simclr_preprocess_ops.random_crop_with_resize(
+          image, image_shape[0], image_shape[1])
+
     if self._aug_rand_hflip:
       image = tf.image.random_flip_left_right(image)
-
-    # Resizes image.
-    image = tf.image.resize(
-        image, self._output_size, method=tf.image.ResizeMethod.BILINEAR)
 
     if self._aug_color_distort and self._mode == simclr_model.PRETRAIN:
       image = simclr_preprocess_ops.random_color_jitter(
@@ -178,10 +166,7 @@ class Parser(parser.Parser):
           image, image_shape[0], image_shape[1])
 
     image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
-    # # Normalizes image with mean and std pixel values.
-    # image = preprocess_ops.normalize_image(image,
-    #                                        offset=MEAN_RGB,
-    #                                        scale=STDDEV_RGB)
+
     image = tf.clip_by_value(image, 0., 1.)
     # Convert image to self._dtype.
     image = tf.image.convert_image_dtype(image, self._dtype)
@@ -218,23 +203,17 @@ class Parser(parser.Parser):
     """Parses data for evaluation."""
     image_bytes = decoded_tensors['image/encoded']
     image_shape = tf.image.extract_jpeg_shape(image_bytes)
-
-    if self._test_crop:
-      image = preprocess_ops.center_crop_image_v2(image_bytes, image_shape)
-    else:
-      image = tf.image.decode_jpeg(image_bytes, channels=3)
-
+    image = tf.image.decode_jpeg(image_bytes, channels=3)
     # This line convert the image to float 0.0 - 1.0
     image = tf.image.convert_image_dtype(image, dtype=tf.float32)
 
-    image = tf.image.resize(
-        image, self._output_size, method=tf.image.ResizeMethod.BILINEAR)
+    if self._test_crop:
+      image = simclr_preprocess_ops.center_crop(
+          image, image_shape[0], image_shape[1],
+          crop_proportion=simclr_preprocess_ops.CROP_PROPORTION)
 
     image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
-    # # Normalizes image with mean and std pixel values.
-    # image = preprocess_ops.normalize_image(image,
-    #                                        offset=MEAN_RGB,
-    #                                        scale=STDDEV_RGB)
+
     image = tf.clip_by_value(image, 0., 1.)
 
     # Convert image to self._dtype.

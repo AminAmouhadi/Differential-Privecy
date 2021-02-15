@@ -177,9 +177,7 @@ class SimCLRPretrainTask(base_task.Task):
     contrast_entropy = -tf.reduce_mean(
         tf.reduce_sum(contrast_prob * tf.math.log(contrast_prob + 1e-8), -1))
 
-    total_loss = contrast_loss
-    if aux_losses:
-      total_loss += tf.add_n(aux_losses)
+    model_loss = contrast_loss
 
     losses = {
         'contrast_loss': contrast_loss,
@@ -202,12 +200,17 @@ class SimCLRPretrainTask(base_task.Task):
       label_acc = tf.equal(tf.argmax(labels, 1), tf.argmax(outputs, axis=1))
       label_acc = tf.reduce_mean(tf.cast(label_acc, tf.float32))
 
-      total_loss += sup_loss
+      model_loss = contrast_loss + sup_loss
 
       losses.update({
           'accuracy': label_acc,
           'supervised_loss': sup_loss,
       })
+
+    total_loss = model_loss
+    if aux_losses:
+      reg_loss = tf.reduce_sum(aux_losses)
+      total_loss = model_loss + reg_loss
 
     losses['total_loss'] = total_loss
 
@@ -253,10 +256,8 @@ class SimCLRPretrainTask(base_task.Task):
       outputs = model(features, training=True)
       # Casting output layer as float32 is necessary when mixed_precision is
       # mixed_float16 or mixed_bfloat16 to ensure output is casted as float32.
-      for item in outputs:
-        if outputs[item] is not None:
-          outputs[item] = tf.nest.map_structure(
-              lambda x: tf.cast(x, tf.float32), outputs[item])
+      outputs = tf.nest.map_structure(
+          lambda x: tf.cast(x, tf.float32), outputs)
 
       # Computes per-replica loss.
       losses = self.build_losses(
