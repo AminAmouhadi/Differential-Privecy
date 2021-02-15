@@ -151,7 +151,7 @@ class ClassificationHead(tf.keras.layers.Layer):
   def __init__(
       self,
       num_classes: int,
-      kernel_initializer: Text = 'VarianceScaling',
+      kernel_initializer: Text = 'random_uniform',
       kernel_regularizer: Optional[regularizers.Regularizer] = None,
       bias_regularizer: Optional[regularizers.Regularizer] = None,
       name: Text = 'head_supervised',
