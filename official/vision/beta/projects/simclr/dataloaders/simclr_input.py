@@ -142,7 +142,7 @@ class Parser(parser.Parser):
     else:
       raise ValueError('dtype {!r} is not supported!'.format(dtype))
 
-  def _parse_one_train_image(self, image_bytes, image_shape):
+  def _parse_one_train_image(self, image_bytes):
 
     image = tf.image.decode_jpeg(image_bytes, channels=3)
     # This line convert the image to float 0.0 - 1.0
@@ -150,7 +150,7 @@ class Parser(parser.Parser):
 
     if self._aug_rand_crop:
       image = simclr_preprocess_ops.random_crop_with_resize(
-          image, image_shape[0], image_shape[1])
+          image, self._output_size[0], self._output_size[1])
 
     if self._aug_rand_hflip:
       image = tf.image.random_flip_left_right(image)
@@ -163,7 +163,7 @@ class Parser(parser.Parser):
 
     if self._aug_rand_blur and self._mode == simclr_model.PRETRAIN:
       image = simclr_preprocess_ops.random_blur(
-          image, image_shape[0], image_shape[1])
+          image, self._output_size[0], self._output_size[1])
 
     image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
 
@@ -176,17 +176,16 @@ class Parser(parser.Parser):
   def _parse_train_data(self, decoded_tensors):
     """Parses data for training."""
     image_bytes = decoded_tensors['image/encoded']
-    image_shape = tf.image.extract_jpeg_shape(image_bytes)
 
     if self._mode == simclr_model.FINETUNE:
-      image = self._parse_one_train_image(image_bytes, image_shape)
+      image = self._parse_one_train_image(image_bytes)
 
     elif self._mode == simclr_model.PRETRAIN:
       # Transform each example twice using a combination of
       # simple augmentations, resulting in 2N data points
       xs = []
       for _ in range(2):
-        xs.append(self._parse_one_train_image(image_bytes, image_shape))
+        xs.append(self._parse_one_train_image(image_bytes))
       image = tf.concat(xs, -1)
 
     else:
@@ -202,14 +201,13 @@ class Parser(parser.Parser):
   def _parse_eval_data(self, decoded_tensors):
     """Parses data for evaluation."""
     image_bytes = decoded_tensors['image/encoded']
-    image_shape = tf.image.extract_jpeg_shape(image_bytes)
     image = tf.image.decode_jpeg(image_bytes, channels=3)
     # This line convert the image to float 0.0 - 1.0
     image = tf.image.convert_image_dtype(image, dtype=tf.float32)
 
     if self._test_crop:
       image = simclr_preprocess_ops.center_crop(
-          image, image_shape[0], image_shape[1],
+          image, self._output_size[0], self._output_size[1],
           crop_proportion=simclr_preprocess_ops.CROP_PROPORTION)
 
     image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
