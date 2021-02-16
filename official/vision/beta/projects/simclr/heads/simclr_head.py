@@ -189,6 +189,7 @@ class ClassificationHead(tf.keras.layers.Layer):
   def build(self, input_shape):
     self._dense0 = nn_blocks.DenseBN(
         output_dim=self._num_classes,
+        activation=None,
         kernel_initializer=self._kernel_initializer,
         kernel_regularizer=self._kernel_regularizer,
         bias_regularizer=self._bias_regularizer)
