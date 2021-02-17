@@ -68,7 +68,7 @@ class ProjectionHeadTest(tf.test.TestCase, parameterized.TestCase):
 
     if num_proj_layers == 0:
       self.assertAllClose(inputs, proj_head_output)
-      self.assertIsNone(proj_finetune_output)
+      self.assertAllClose(inputs, proj_head_output)
     else:
       self.assertAllEqual(proj_head_output.shape.as_list(),
                           [batch_size, proj_output_dim])

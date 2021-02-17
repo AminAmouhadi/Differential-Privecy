@@ -91,6 +91,7 @@ class ProjectionHead(tf.keras.layers.Layer):
     return dict(list(base_config.items()) + list(config.items()))
 
   def build(self, input_shape):
+    self._layers = []
     if self._num_proj_layers == 0:
       pass
     else:
@@ -136,8 +137,10 @@ class ProjectionHead(tf.keras.layers.Layer):
       for j in range(self._num_proj_layers):
         hiddens = self._layers[j](hiddens_list[-1], training)
         hiddens_list.append(hiddens)
-      proj_head_output = tf.identity(hiddens_list[-1], 'proj_head_output')
-      proj_finetune_output = hiddens_list[self._ft_proj_idx]
+      proj_head_output = tf.identity(
+          hiddens_list[-1], 'proj_head_output')
+      proj_finetune_output = tf.identity(
+          hiddens_list[self._ft_proj_idx], 'proj_finetune_output')
 
     # The first element is the output of the projection head.
     # The second element is the input of the finetune head.
@@ -197,5 +200,4 @@ class ClassificationHead(tf.keras.layers.Layer):
 
   def call(self, inputs, training=None):
     inputs = self._dense0(inputs, training)
-    inputs = tf.identity(inputs, name='logits_sup')
     return inputs

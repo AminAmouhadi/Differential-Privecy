@@ -158,19 +158,19 @@ class SimCLRPretrainTask(base_task.Task):
                    model_outputs,
                    aux_losses=None) -> Dict[str, tf.Tensor]:
     # Compute contrastive relative loss
-    losses_obj = contrastive_losses.ContrastiveLoss(
+    con_losses_obj = contrastive_losses.ContrastiveLoss(
         projection_norm=self.task_config.loss.projection_norm,
         temperature=self.task_config.loss.temperature)
     # The projection outputs from model has the size of
     # (2 * bsz, project_dim)
     projection_outputs = model_outputs[simclr_model.PROJECTION_OUTPUT_KEY]
     projection1, projection2 = tf.split(projection_outputs, 2, 0)
-    contrast_loss, (contrast_logits, contrast_labels) = losses_obj(
+    contrast_loss, (contrast_logits, contrast_labels) = con_losses_obj(
         projection1=projection1,
         projection2=projection2)
 
     contrast_accuracy = tf.equal(
-        tf.argmax(contrast_labels, 1), tf.argmax(contrast_logits, axis=1))
+        tf.argmax(contrast_labels, axis=1), tf.argmax(contrast_logits, axis=1))
     contrast_accuracy = tf.reduce_mean(tf.cast(contrast_accuracy, tf.float32))
 
     contrast_prob = tf.nn.softmax(contrast_logits)
@@ -185,19 +185,22 @@ class SimCLRPretrainTask(base_task.Task):
         'contrast_entropy': contrast_entropy
     }
 
-    if self.task_config.model.supervised_head:
+    if self.task_config.model.supervised_head is not None:
       outputs = model_outputs[simclr_model.SUPERVISED_OUTPUT_KEY]
       labels = tf.concat([labels, labels], 0)
 
       if self.task_config.evaluation.one_hot:
-        sup_loss = tf.keras.losses.categorical_crossentropy(
-            labels, outputs, from_logits=True)
+        sup_loss = tf.keras.losses.CategoricalCrossentropy(
+            from_logits=True, reduction=tf.keras.losses.Reduction.NONE)(
+            labels, outputs)
       else:
-        sup_loss = tf.keras.losses.sparse_categorical_crossentropy(
-            labels, outputs, from_logits=True)
-      sup_loss = tf_utils.safe_mean(sup_loss)
+        sup_loss = tf.keras.losses.SparseCategoricalCrossentropy(
+            from_logits=True, reduction=tf.keras.losses.Reduction.NONE)(
+            labels, outputs)
+      sup_loss = tf.reduce_mean(sup_loss)
 
-      label_acc = tf.equal(tf.argmax(labels, 1), tf.argmax(outputs, axis=1))
+      label_acc = tf.equal(tf.argmax(labels, axis=1),
+                           tf.argmax(outputs, axis=1))
       label_acc = tf.reduce_mean(tf.cast(label_acc, tf.float32))
 
       model_loss = contrast_loss + sup_loss
@@ -246,7 +249,7 @@ class SimCLRPretrainTask(base_task.Task):
 
   def train_step(self, inputs, model, optimizer, metrics=None):
     features, labels = inputs
-    if (self.task_config.model.supervised_head
+    if (self.task_config.model.supervised_head is not None
         and self.task_config.evaluation.one_hot):
       num_classes = self.task_config.model.supervised_head.num_classes
       labels = tf.one_hot(labels, num_classes)
@@ -288,7 +291,7 @@ class SimCLRPretrainTask(base_task.Task):
     return logs
 
   def validation_step(self, inputs, model, metrics=None):
-    if not self.task_config.model.supervised_head:
+    if self.task_config.model.supervised_head is None:
       assert "Skipping eval during pretraining without supervised head."
 
     features, labels = inputs
@@ -296,8 +299,8 @@ class SimCLRPretrainTask(base_task.Task):
       num_classes = self.task_config.model.supervised_head.num_classes
       labels = tf.one_hot(labels, num_classes)
 
-    outputs = self.inference_step(
-        features, model)[simclr_model.SUPERVISED_OUTPUT_KEY]
+    outputs = self.model(
+        features, training=False)[simclr_model.SUPERVISED_OUTPUT_KEY]
     outputs = tf.nest.map_structure(lambda x: tf.cast(x, tf.float32), outputs)
 
     logs = {self.loss: 0}
