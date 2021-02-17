@@ -299,7 +299,7 @@ class SimCLRPretrainTask(base_task.Task):
       num_classes = self.task_config.model.supervised_head.num_classes
       labels = tf.one_hot(labels, num_classes)
 
-    outputs = self.model(
+    outputs = model(
         features, training=False)[simclr_model.SUPERVISED_OUTPUT_KEY]
     outputs = tf.nest.map_structure(lambda x: tf.cast(x, tf.float32), outputs)
 
