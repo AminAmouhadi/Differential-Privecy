@@ -14,7 +14,6 @@
 # limitations under the License.
 # ==============================================================================
 """SimCLR configurations"""
-import math
 import os
 from typing import List, Optional
 
@@ -70,6 +69,7 @@ class ProjectionHead(hyperparams.Config):
 @dataclasses.dataclass
 class SupervisedHead(hyperparams.Config):
   num_classes: int = 1001
+  zero_init: bool = False
 
 
 @dataclasses.dataclass
@@ -124,7 +124,9 @@ class SimCLRPretrainTask(cfg.TaskConfig):
 
 @dataclasses.dataclass
 class SimCLRFinetuneTask(cfg.TaskConfig):
-  model: SimCLRModel = SimCLRModel(mode=simclr_model.FINETUNE)
+  model: SimCLRModel = SimCLRModel(
+      mode=simclr_model.FINETUNE,
+      supervised_head=SupervisedHead(num_classes=1001, zero_init=True))
   train_data: DataConfig = DataConfig(
       parser=Parser(mode=simclr_model.FINETUNE), is_training=True)
   validation_data: DataConfig = DataConfig(
@@ -225,9 +227,8 @@ def simclr_pretraining_imagenet() -> cfg.ExperimentConfig:
               'learning_rate': {
                   'type': 'cosine',
                   'cosine': {
-                      # 0.1 × sqrt(BatchSize)
-                      'initial_learning_rate': 0.1 * math.sqrt(
-                          train_batch_size),
+                      # 0.2 * BatchSize / 256
+                      'initial_learning_rate': 0.2 * train_batch_size / 256,
                       # train_steps - warmup_steps
                       'decay_steps': 475 * steps_per_epoch
                   }
@@ -249,7 +250,6 @@ def simclr_pretraining_imagenet() -> cfg.ExperimentConfig:
 @exp_factory.register_config_factory('simclr_finetuning_imagenet')
 def simclr_finetuning_imagenet() -> cfg.ExperimentConfig:
   """Image classification general."""
-  """Image classification general."""
   train_batch_size = 1024
   eval_batch_size = 1024
   steps_per_epoch = IMAGENET_TRAIN_EXAMPLES // train_batch_size
@@ -266,7 +266,8 @@ def simclr_finetuning_imagenet() -> cfg.ExperimentConfig:
                   proj_output_dim=128,
                   num_proj_layers=3,
                   ft_proj_idx=1),
-              supervised_head=SupervisedHead(num_classes=1001),
+              supervised_head=SupervisedHead(
+                  num_classes=1001, zero_init=True),
               norm_activation=common.NormActivation(
                   norm_momentum=0.9, norm_epsilon=1e-5, use_sync_bn=False)),
           loss=ClassificationLosses(),
@@ -306,9 +307,8 @@ def simclr_finetuning_imagenet() -> cfg.ExperimentConfig:
               'learning_rate': {
                   'type': 'cosine',
                   'cosine': {
-                      # 0.005 × sqrt(BatchSize)
-                      'initial_learning_rate': 0.005 * math.sqrt(
-                          train_batch_size),
+                      # 0.01 × BatchSize / 512
+                      'initial_learning_rate': 0.01 * train_batch_size / 512,
                       'decay_steps': 60 * steps_per_epoch
                   }
               }

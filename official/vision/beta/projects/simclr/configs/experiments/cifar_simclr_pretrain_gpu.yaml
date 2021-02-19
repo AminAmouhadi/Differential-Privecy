@@ -1,4 +1,4 @@
-# ImageNet classification.
+# Cifar classification.
 runtime:
   distribution_strategy: 'mirrored'
   mixed_precision_dtype: 'float16'
@@ -16,7 +16,7 @@ task:
     projection_head:
       proj_output_dim: 64
       num_proj_layers: 2
-      ft_proj_idx: 0
+      ft_proj_idx: 1
     supervised_head:
       num_classes: 10
     norm_activation:
@@ -60,7 +60,7 @@ task:
       decode_label: true
 trainer:
   train_steps: 48000  # 500 epochs
-  validation_steps: 18 # NUM_EXAMPLES (10000) // global_batch_size
+  validation_steps: 18  # NUM_EXAMPLES (10000) // global_batch_size
   validation_interval: 96
   steps_per_loop: 16  # NUM_EXAMPLES (50000) // global_batch_size
   summary_interval: 16
@@ -75,9 +75,9 @@ trainer:
     learning_rate:
       type: 'cosine'
       cosine:
-        initial_learning_rate: 2.2  #  0.2 × sqrt(BatchSize)
-        decay_steps: 45600 # train_steps - warmup_steps
+        initial_learning_rate: 0.6  #  0.3 × BatchSize / 256
+        decay_steps: 43200  # train_steps - warmup_steps
     warmup:
       type: 'linear'
       linear:
-        warmup_steps: 2400 # 5% of total epochs
+        warmup_steps: 4800  # 10% of total epochs

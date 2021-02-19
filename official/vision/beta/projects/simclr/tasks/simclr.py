@@ -80,8 +80,13 @@ class SimCLRPretrainTask(base_task.Task):
     # Build supervised head
     supervised_head_config = model_config.supervised_head
     if supervised_head_config:
+      if supervised_head_config.zero_init:
+        s_kernel_initializer = 'zeros'
+      else:
+        s_kernel_initializer = 'random_uniform'
       supervised_head = simclr_head.ClassificationHead(
           num_classes=supervised_head_config.num_classes,
+          kernel_initializer=s_kernel_initializer,
           kernel_regularizer=l2_regularizer)
     else:
       supervised_head = None
@@ -350,8 +355,13 @@ class SimCLRFinetuneTask(base_task.Task):
         norm_epsilon=norm_activation_config.norm_epsilon)
 
     supervised_head_config = model_config.supervised_head
+    if supervised_head_config.zero_init:
+      s_kernel_initializer = 'zeros'
+    else:
+      s_kernel_initializer = 'random_uniform'
     supervised_head = simclr_head.ClassificationHead(
         num_classes=supervised_head_config.num_classes,
+        kernel_initializer=s_kernel_initializer,
         kernel_regularizer=l2_regularizer)
 
     model = simclr_model.SimCLRModel(
