@@ -16,7 +16,7 @@ task:
     projection_head:
       proj_output_dim: 64
       num_proj_layers: 2
-      ft_proj_idx: 1
+      ft_proj_idx: 0
     supervised_head:
       num_classes: 10
     norm_activation:

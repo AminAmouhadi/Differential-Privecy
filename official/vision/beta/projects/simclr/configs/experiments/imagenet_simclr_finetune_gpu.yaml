@@ -19,6 +19,7 @@ task:
       ft_proj_idx: 1
     supervised_head:
       num_classes: 1001
+      zero_init: true
     norm_activation:
       use_sync_bn: false
       norm_momentum: 0.9
