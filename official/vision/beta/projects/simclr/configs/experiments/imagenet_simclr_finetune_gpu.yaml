@@ -58,13 +58,12 @@ trainer:
   checkpoint_interval: 125
   optimizer_config:
     optimizer:
-      type: 'lars'
-      lars:
+      type: 'sgd'
+      sgd:
         momentum: 0.9
-        weight_decay_rate: 0.0
-        exclude_from_weight_decay: ['batch_normalization', 'bias', 'head_supervised']
+        nesterov: true
     learning_rate:
       type: 'cosine'
       cosine:
-        initial_learning_rate: 0.02  #  0.01 × BatchSize / 512
+        initial_learning_rate: 0.04  #  0.02 × BatchSize / 512
         decay_steps: 12500 # train_steps
