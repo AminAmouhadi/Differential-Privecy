@@ -22,6 +22,7 @@ import tensorflow as tf
 from official.vision.beta.projects.simclr.modeling.layers import nn_blocks
 
 regularizers = tf.keras.regularizers
+layers = tf.keras.layers
 
 
 @tf.keras.utils.register_keras_serializable(package='simclr')
@@ -92,9 +93,7 @@ class ProjectionHead(tf.keras.layers.Layer):
 
   def build(self, input_shape):
     self._layers = []
-    if self._num_proj_layers == 0:
-      pass
-    else:
+    if self._num_proj_layers > 0:
       intermediate_dim = int(input_shape[-1])
       for j in range(self._num_proj_layers):
         if j != self._num_proj_layers - 1:
@@ -190,8 +189,8 @@ class ClassificationHead(tf.keras.layers.Layer):
     return dict(list(base_config.items()) + list(config.items()))
 
   def build(self, input_shape):
-    self._dense0 = nn_blocks.DenseBN(
-        output_dim=self._num_classes,
+    self._dense0 = layers.Dense(
+        units=self._num_classes,
         activation=None,
         kernel_initializer=self._kernel_initializer,
         kernel_regularizer=self._kernel_regularizer,

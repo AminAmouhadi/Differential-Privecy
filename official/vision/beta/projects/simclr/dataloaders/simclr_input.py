@@ -42,6 +42,7 @@ import tensorflow as tf
 
 from official.vision.beta.dataloaders import decoder
 from official.vision.beta.dataloaders import parser
+from official.vision.beta.ops import preprocess_ops
 from official.vision.beta.projects.simclr.dataloaders import \
   preprocess_ops as simclr_preprocess_ops
 from official.vision.beta.projects.simclr.modeling import simclr_model
@@ -201,14 +202,14 @@ class Parser(parser.Parser):
   def _parse_eval_data(self, decoded_tensors):
     """Parses data for evaluation."""
     image_bytes = decoded_tensors['image/encoded']
-    image = tf.image.decode_jpeg(image_bytes, channels=3)
-    # This line convert the image to float 0.0 - 1.0
-    image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+    image_shape = tf.image.extract_jpeg_shape(image_bytes)
 
     if self._test_crop:
-      image = simclr_preprocess_ops.center_crop(
-          image, self._output_size[0], self._output_size[1],
-          crop_proportion=simclr_preprocess_ops.CROP_PROPORTION)
+      image = preprocess_ops.center_crop_image_v2(image_bytes, image_shape)
+    else:
+      image = tf.image.decode_jpeg(image_bytes, channels=3)
+    # This line convert the image to float 0.0 - 1.0
+    image = tf.image.convert_image_dtype(image, dtype=tf.float32)
 
     image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
 
