@@ -29,8 +29,6 @@ task:
   evaluation:
     top_k: 5
     one_hot: true
-  weight_decay: 0.000001
-  optimizer: 'lars'
   train_data:
     input_path: 'imagenet-2012-tfrecord/train*'
     is_training: true
@@ -63,7 +61,7 @@ trainer:
       lars:
         momentum: 0.9
         weight_decay_rate: 0.000001
-        exclude_from_weight_decay: ['batch_normalization', 'bias', 'head_supervised']
+        exclude_from_weight_decay: ['batch_normalization', 'bias']
     learning_rate:
       type: 'cosine'
       cosine:

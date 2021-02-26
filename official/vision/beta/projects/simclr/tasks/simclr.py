@@ -26,12 +26,15 @@ the task definition:
 - projection_head and/or supervised_head
 """
 
-from typing import Dict
+from typing import Dict, Optional
 from absl import logging
 import tensorflow as tf
 from official.core import base_task
 from official.core import input_reader
 from official.core import task_factory
+from official.core import config_definitions
+from official.modeling import optimization
+from official.modeling import performance
 from official.modeling import tf_utils
 from official.vision.beta.modeling import backbones
 from official.vision.beta.projects.simclr.configs import simclr as exp_cfg
@@ -40,30 +43,59 @@ from official.vision.beta.projects.simclr.heads import simclr_head
 from official.vision.beta.projects.simclr.dataloaders import simclr_input
 from official.vision.beta.projects.simclr.losses import contrastive_losses
 
+TrainerConfig = config_definitions.TrainerConfig
+RuntimeConfig = config_definitions.RuntimeConfig
+
 
 @task_factory.register_task_cls(exp_cfg.SimCLRPretrainTask)
 class SimCLRPretrainTask(base_task.Task):
   """A task for image classification."""
+
+  def create_optimizer(self, trainer_config: TrainerConfig,
+                       runtime_config: Optional[RuntimeConfig] = None):
+    """Creates an TF optimizer from configurations.
+
+    Args:
+      trainer_config: the parameters of the trainer.
+      runtime_config: the parameters of the runtime.
+
+    Returns:
+      A tf.optimizers.Optimizer object.
+    """
+    if (trainer_config.optimizer_config.optimizer.type == 'lars'
+        and self.task_config.loss.l2_weight_decay > 0.0):
+      raise ValueError('The l2_weight_decay cannot be used together with lars '
+                       'optimizer. Please set it to 0.')
+
+    opt_factory = optimization.OptimizerFactory(trainer_config.optimizer_config)
+    optimizer = opt_factory.build_optimizer(opt_factory.build_learning_rate())
+    # Configuring optimizer when loss_scale is set in runtime config. This helps
+    # avoiding overflow/underflow for float16 computations.
+    if runtime_config and runtime_config.loss_scale:
+      optimizer = performance.configure_optimizer(
+          optimizer,
+          use_float16=runtime_config.mixed_precision_dtype == "float16",
+          loss_scale=runtime_config.loss_scale)
+
+    return optimizer
 
   def build_model(self):
     model_config = self.task_config.model
     input_specs = tf.keras.layers.InputSpec(
         shape=[None] + model_config.input_size)
 
-    l2_weight_decay = self.task_config.weight_decay
+    l2_weight_decay = self.task_config.loss.l2_weight_decay
     # Divide weight decay by 2.0 to match the implementation of tf.nn.l2_loss.
     # (https://www.tensorflow.org/api_docs/python/tf/keras/regularizers/l2)
     # (https://www.tensorflow.org/api_docs/python/tf/nn/l2_loss)
     l2_regularizer = (tf.keras.regularizers.l2(
         l2_weight_decay / 2.0) if l2_weight_decay else None)
 
-    use_lars = 'lars' in self.task_config.optimizer
-
     # Build backbone
     backbone = backbones.factory.build_backbone(
         input_specs=input_specs,
         model_config=model_config,
-        l2_regularizer=l2_regularizer if not use_lars else None)
+        l2_regularizer=l2_regularizer)
 
     # Build projection head
     norm_activation_config = model_config.norm_activation
@@ -72,7 +104,7 @@ class SimCLRPretrainTask(base_task.Task):
         proj_output_dim=projection_head_config.proj_output_dim,
         num_proj_layers=projection_head_config.num_proj_layers,
         ft_proj_idx=projection_head_config.ft_proj_idx,
-        kernel_regularizer=l2_regularizer if not use_lars else None,
+        kernel_regularizer=l2_regularizer,
         use_sync_bn=norm_activation_config.use_sync_bn,
         norm_momentum=norm_activation_config.norm_momentum,
         norm_epsilon=norm_activation_config.norm_epsilon)
@@ -324,24 +356,50 @@ class SimCLRPretrainTask(base_task.Task):
 class SimCLRFinetuneTask(base_task.Task):
   """A task for image classification."""
 
+  def create_optimizer(self, trainer_config: TrainerConfig,
+                       runtime_config: Optional[RuntimeConfig] = None):
+    """Creates an TF optimizer from configurations.
+
+    Args:
+      trainer_config: the parameters of the trainer.
+      runtime_config: the parameters of the runtime.
+
+    Returns:
+      A tf.optimizers.Optimizer object.
+    """
+    if (trainer_config.optimizer_config.optimizer.type == 'lars'
+        and self.task_config.loss.l2_weight_decay > 0.0):
+      raise ValueError('The l2_weight_decay cannot be used together with lars '
+                       'optimizer. Please set it to 0.')
+
+    opt_factory = optimization.OptimizerFactory(trainer_config.optimizer_config)
+    optimizer = opt_factory.build_optimizer(opt_factory.build_learning_rate())
+    # Configuring optimizer when loss_scale is set in runtime config. This helps
+    # avoiding overflow/underflow for float16 computations.
+    if runtime_config and runtime_config.loss_scale:
+      optimizer = performance.configure_optimizer(
+          optimizer,
+          use_float16=runtime_config.mixed_precision_dtype == "float16",
+          loss_scale=runtime_config.loss_scale)
+
+    return optimizer
+
   def build_model(self):
     model_config = self.task_config.model
     input_specs = tf.keras.layers.InputSpec(
         shape=[None] + model_config.input_size)
 
-    l2_weight_decay = self.task_config.weight_decay
+    l2_weight_decay = self.task_config.loss.l2_weight_decay
     # Divide weight decay by 2.0 to match the implementation of tf.nn.l2_loss.
     # (https://www.tensorflow.org/api_docs/python/tf/keras/regularizers/l2)
     # (https://www.tensorflow.org/api_docs/python/tf/nn/l2_loss)
     l2_regularizer = (tf.keras.regularizers.l2(
         l2_weight_decay / 2.0) if l2_weight_decay else None)
 
-    use_lars = 'lars' in self.task_config.optimizer
-
     backbone = backbones.factory.build_backbone(
         input_specs=input_specs,
         model_config=model_config,
-        l2_regularizer=l2_regularizer if not use_lars else None)
+        l2_regularizer=l2_regularizer)
 
     norm_activation_config = model_config.norm_activation
     projection_head_config = model_config.projection_head
@@ -349,7 +407,7 @@ class SimCLRFinetuneTask(base_task.Task):
         proj_output_dim=projection_head_config.proj_output_dim,
         num_proj_layers=projection_head_config.num_proj_layers,
         ft_proj_idx=projection_head_config.ft_proj_idx,
-        kernel_regularizer=l2_regularizer if not use_lars else None,
+        kernel_regularizer=l2_regularizer,
         use_sync_bn=norm_activation_config.use_sync_bn,
         norm_momentum=norm_activation_config.norm_momentum,
         norm_epsilon=norm_activation_config.norm_epsilon)

@@ -30,8 +30,6 @@ task:
   evaluation:
     top_k: 5
     one_hot: true
-  weight_decay: 0.0
-  optimizer: 'lars'
   init_checkpoint: 'path-to-pretrain-checkpoint'
   init_checkpoint_modules: 'backbone_projection'
   train_data:

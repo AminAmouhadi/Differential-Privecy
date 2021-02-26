@@ -76,12 +76,14 @@ class SupervisedHead(hyperparams.Config):
 class ContrastiveLoss(hyperparams.Config):
   projection_norm: bool = True
   temperature: float = 0.1
+  l2_weight_decay: float = 0.0
 
 
 @dataclasses.dataclass
 class ClassificationLosses(hyperparams.Config):
   label_smoothing: float = 0.0
   one_hot: bool = True
+  l2_weight_decay: float = 0.0
 
 
 @dataclasses.dataclass
@@ -118,8 +120,6 @@ class SimCLRPretrainTask(cfg.TaskConfig):
   init_checkpoint: Optional[str] = None
   # all or backbone
   init_checkpoint_modules: str = 'all'
-  optimizer: str = 'lars'
-  weight_decay: float = 1e-6
 
 
 @dataclasses.dataclass
@@ -136,8 +136,6 @@ class SimCLRFinetuneTask(cfg.TaskConfig):
   init_checkpoint: Optional[str] = None
   # all, backbone_projection or backbone
   init_checkpoint_modules: str = 'backbone_projection'
-  optimizer: str = 'lars'
-  weight_decay: float = 0.0
 
 
 @exp_factory.register_config_factory('simclr_pretraining')
@@ -204,8 +202,6 @@ def simclr_pretraining_imagenet() -> cfg.ExperimentConfig:
               input_path=os.path.join(IMAGENET_INPUT_PATH_BASE, 'valid*'),
               is_training=False,
               global_batch_size=eval_batch_size),
-          weight_decay=0.000001,
-          optimizer='lars'
       ),
       trainer=cfg.TrainerConfig(
           steps_per_loop=steps_per_epoch,
@@ -221,7 +217,7 @@ def simclr_pretraining_imagenet() -> cfg.ExperimentConfig:
                       'momentum': 0.9,
                       'weight_decay_rate': 0.000001,
                       'exclude_from_weight_decay': [
-                          'batch_normalization', 'bias', 'head_supervised']
+                          'batch_normalization', 'bias']
                   }
               },
               'learning_rate': {
@@ -282,8 +278,6 @@ def simclr_finetuning_imagenet() -> cfg.ExperimentConfig:
               input_path=os.path.join(IMAGENET_INPUT_PATH_BASE, 'valid*'),
               is_training=False,
               global_batch_size=eval_batch_size),
-          weight_decay=0.0,
-          optimizer='lars',
           init_checkpoint=pretrain_model_base,
           # all, backbone_projection or backbone
           init_checkpoint_modules='backbone_projection'),
@@ -301,7 +295,7 @@ def simclr_finetuning_imagenet() -> cfg.ExperimentConfig:
                       'momentum': 0.9,
                       'weight_decay_rate': 0.0,
                       'exclude_from_weight_decay': [
-                          'batch_normalization', 'bias', 'head_supervised']
+                          'batch_normalization', 'bias']
                   }
               },
               'learning_rate': {
