@@ -198,5 +198,5 @@ class ClassificationHead(tf.keras.layers.Layer):
     super(ClassificationHead, self).build(input_shape)
 
   def call(self, inputs, training=None):
-    inputs = self._dense0(inputs, training)
+    inputs = self._dense0(inputs)
     return inputs
