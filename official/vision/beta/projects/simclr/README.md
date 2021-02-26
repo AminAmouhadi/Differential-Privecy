@@ -10,13 +10,48 @@
   An illustration of SimCLR (from <a href="https://ai.googleblog.com/2020/04/advancing-self-supervised-and-semi.html">our blog here</a>).
 </div>
 
+
+
+## Enviroment setup
+The code can be run on multiple GPUs or TPUs with different distribution strategies. 
+See the TensorFlow distributed training [guide](https://www.tensorflow.org/guide/distributed_training) for an overview of `tf.distribute`.
+
+The code is compatible with TensorFlow 2.4+. See requirements.txt for all prerequisites, 
+and you can also install them using the following command.
+```
+pip install -r ./official/requirements.txt
+```
+
+## Pretraining
+To pretrain the model on Imagenet, try the following command:
+
 ```
 python3 -m official.vision.beta.projects.simclr.train \
   --mode=train_and_eval \
-  --experiment=simclr_pretraining_imagenet \
+  --experiment=simclr_pretraining \
   --model_dir={MODEL_DIR} \
   --config_file={CONFIG_FILE}
 ```
+
+An example of the config file can be found [here](./configs/experiments/imagenet_simclr_pretrain_gpu.yaml)
+
+
+## Semi-supervised learning and fine-tuning the whole network
+
+You can access 1% and 10% ImageNet subsets used for semi-supervised learning via [tensorflow datasets](https://www.tensorflow.org/datasets/catalog/imagenet2012_subset).
+You can also find image IDs of these subsets in `imagenet_subsets/`.
+
+To fine-tune the whole network, refer to the following command:
+
+```
+python3 -m official.vision.beta.projects.simclr.train \
+  --mode=train_and_eval \
+  --experiment=simclr_finetuning \
+  --model_dir={MODEL_DIR} \
+  --config_file={CONFIG_FILE}
+```
+
+An example of the config file can be found [here](./configs/experiments/imagenet_simclr_finetune_gpu.yaml).
 
 ## Cite
 
@@ -41,6 +76,3 @@ python3 -m official.vision.beta.projects.simclr.train \
   year={2020}
 }
 ```
-
-## Disclaimer
-This is not an official Google product.
