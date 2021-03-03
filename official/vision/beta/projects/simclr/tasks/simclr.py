@@ -43,7 +43,7 @@ from official.vision.beta.projects.simclr.heads import simclr_head
 from official.vision.beta.projects.simclr.dataloaders import simclr_input
 from official.vision.beta.projects.simclr.losses import contrastive_losses
 
-TrainerConfig = config_definitions.TrainerConfig
+OptimizationConfig = optimization.OptimizationConfig
 RuntimeConfig = config_definitions.RuntimeConfig
 
 
@@ -51,23 +51,23 @@ RuntimeConfig = config_definitions.RuntimeConfig
 class SimCLRPretrainTask(base_task.Task):
   """A task for image classification."""
 
-  def create_optimizer(self, trainer_config: TrainerConfig,
+  def create_optimizer(self, optimizer_config: OptimizationConfig,
                        runtime_config: Optional[RuntimeConfig] = None):
     """Creates an TF optimizer from configurations.
 
     Args:
-      trainer_config: the parameters of the trainer.
+      optimizer_config: the parameters of the Optimization settings.
       runtime_config: the parameters of the runtime.
 
     Returns:
       A tf.optimizers.Optimizer object.
     """
-    if (trainer_config.optimizer_config.optimizer.type == 'lars'
+    if (optimizer_config.optimizer.type == 'lars'
         and self.task_config.loss.l2_weight_decay > 0.0):
       raise ValueError('The l2_weight_decay cannot be used together with lars '
                        'optimizer. Please set it to 0.')
 
-    opt_factory = optimization.OptimizerFactory(trainer_config.optimizer_config)
+    opt_factory = optimization.OptimizerFactory(optimizer_config)
     optimizer = opt_factory.build_optimizer(opt_factory.build_learning_rate())
     # Configuring optimizer when loss_scale is set in runtime config. This helps
     # avoiding overflow/underflow for float16 computations.
@@ -356,23 +356,23 @@ class SimCLRPretrainTask(base_task.Task):
 class SimCLRFinetuneTask(base_task.Task):
   """A task for image classification."""
 
-  def create_optimizer(self, trainer_config: TrainerConfig,
+  def create_optimizer(self, optimizer_config: OptimizationConfig,
                        runtime_config: Optional[RuntimeConfig] = None):
     """Creates an TF optimizer from configurations.
 
     Args:
-      trainer_config: the parameters of the trainer.
+      optimizer_config: the parameters of the Optimization settings.
       runtime_config: the parameters of the runtime.
 
     Returns:
       A tf.optimizers.Optimizer object.
     """
-    if (trainer_config.optimizer_config.optimizer.type == 'lars'
+    if (optimizer_config.optimizer.type == 'lars'
         and self.task_config.loss.l2_weight_decay > 0.0):
       raise ValueError('The l2_weight_decay cannot be used together with lars '
                        'optimizer. Please set it to 0.')
 
-    opt_factory = optimization.OptimizerFactory(trainer_config.optimizer_config)
+    opt_factory = optimization.OptimizerFactory(optimizer_config)
     optimizer = opt_factory.build_optimizer(opt_factory.build_learning_rate())
     # Configuring optimizer when loss_scale is set in runtime config. This helps
     # avoiding overflow/underflow for float16 computations.
