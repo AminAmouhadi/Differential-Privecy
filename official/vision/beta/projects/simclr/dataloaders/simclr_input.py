@@ -202,17 +202,15 @@ class Parser(parser.Parser):
   def _parse_eval_data(self, decoded_tensors):
     """Parses data for evaluation."""
     image_bytes = decoded_tensors['image/encoded']
-    image_shape = tf.image.extract_jpeg_shape(image_bytes)
-
-    if self._test_crop:
-      image = preprocess_ops.center_crop_image_v2(image_bytes, image_shape)
-    else:
-      image = tf.image.decode_jpeg(image_bytes, channels=3)
+    image = tf.image.decode_jpeg(image_bytes, channels=3)
     # This line convert the image to float 0.0 - 1.0
     image = tf.image.convert_image_dtype(image, dtype=tf.float32)
 
-    image = tf.image.resize(
-        image, self._output_size, method=tf.image.ResizeMethod.BILINEAR)
+    if self._test_crop:
+      image = simclr_preprocess_ops.center_crop(
+          image, self._output_size[0], self._output_size[1],
+          crop_proportion=simclr_preprocess_ops.CROP_PROPORTION)
+
     image = tf.reshape(image, [self._output_size[0], self._output_size[1], 3])
 
     image = tf.clip_by_value(image, 0., 1.)
