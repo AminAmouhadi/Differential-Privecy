@@ -206,6 +206,8 @@ class Parser(parser.Parser):
 
     if self._test_crop:
       image = preprocess_ops.center_crop_image_v2(image_bytes, image_shape)
+      image = tf.image.resize(
+          image, self._output_size, method=tf.image.ResizeMethod.BICUBIC)
     else:
       image = tf.image.decode_jpeg(image_bytes, channels=3)
     # This line convert the image to float 0.0 - 1.0
