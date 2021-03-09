@@ -182,3 +182,7 @@ class LARS(tf.keras.optimizers.Optimizer):
         "nesterov": self.nesterov,
     })
     return config
+
+  @classmethod
+  def from_config(cls, config, custom_objects=None):
+    return cls(**config)
